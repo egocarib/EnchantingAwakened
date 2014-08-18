@@ -1,5 +1,11 @@
 Scriptname EA_Learn_Muffle extends ActiveMagicEffect
 
+
+
+;;This is only a DRAFT VERSION
+
+
+
 ;Effect is active when conditions are met:
 ;  HasMagicEffect   EnchMuffleConstantSelf   ==   1.00   AND
 ;  GetLightLevel    NONE                     <   35.00
@@ -7,14 +13,14 @@ Scriptname EA_Learn_Muffle extends ActiveMagicEffect
 
 ;active while indoors w/ dungeon, OR nighttime (gamehour), OR sneaking OR unpleasant outside
 
-then check if sneaking, or low light, or undetected
+;;then check if sneaking, or low light, or undetected
 
 ;also could update armor counts and use that to modify amount
 
 
 ;sneaking or low light every 30 sec (or undetected by nearby actor)
 
-ORs:
+;;ORs:
 ;sneak
 ;lightLevel < 20
 ;gameHour > 21
