@@ -1,0 +1,2 @@
+"C:\Users\Justin\Documents\My Games\SmartSteam_v1.4.1_Incl_Steam_2\steamapps\common\skyrim\Papyrus compiler\PapyrusCompiler.exe" "C:\Skyrim Projects\Enchanting Awakened\Data\scripts\Source" -all -f="TESV_Papyrus_Flags.flg" -i="C:\Users\Justin\Documents\My Games\SmartSteam_v1.4.1_Incl_Steam_2\SteamApps\common\Skyrim\Data\scripts\Source;C:\Skyrim Projects\Enchanting Awakened\Data\scripts\Source" -o="C:\Skyrim Projects\Enchanting Awakened\Data\scripts"
+pause
