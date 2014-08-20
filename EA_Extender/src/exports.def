@@ -1,0 +1,4 @@
+LIBRARY	"EA_Extender"
+EXPORTS
+SKSEPlugin_Query
+SKSEPlugin_Load
