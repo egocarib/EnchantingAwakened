@@ -138,7 +138,6 @@ EndState
 
 
 
-
 bool Function CanDisenchant(Enchantment baseEnch)
 	;check if current Soul Shaper perks allow access to this enchantment:
 	int list = PerkStateCore
