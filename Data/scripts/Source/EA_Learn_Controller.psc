@@ -1,64 +1,47 @@
-Scriptname EA_Learn_Controller extends ReferenceAlias
+Scriptname EA_Learn_Controller extends ReferenceAlias conditional
+{central control script for learn events and adding learn experience}
 
-; GlobalVariable[] property stateInfo auto
 
-; int property inCombat autoreadonly
-
-Actor  property playerRef auto
-Quest  property  MQ101  auto
-EA_Learn_Delegator property Delegator auto
-
-;bool[] property  learnEnabled  auto
-;int[] property learnEnabled auto
-
+Actor              property  playerRef  auto
+Quest              property  MQ101      auto
+EA_Learn_Delegator property  Delegator  auto
 
 int  property  ALTERATION  = 0  autoreadonly
 int  property  CONJURATION = 1  autoreadonly
 int  property  DESTRUCTION = 2  autoreadonly
 int  property  ILLUSION    = 3  autoreadonly
 int  property  RESTORATION = 4  autoreadonly
-;int  property  MAGICKA     = 5  autoreadonly
-; int  property  HEAVY_ARMOR = 6  autoreadonly
-; int  property  LIGHT_ARMOR = 7  autoreadonly
 
-; ;State-based event controllers
-; int  property  currentEventState = 0x00
-; int  property  kState_HeavyArmor = 0x01 autoreadonly
-; int  property  kState_LightArmor = 0x02 autoreadonly
+int  property  ONEHANDED   = 0  autoreadonly
+int  property  TWOHANDED   = 1  autoreadonly
+int  property  BOW         = 2  autoreadonly
 
-float  property  fortifyBlock_xp        auto hidden
-float  property  fortifyHeavyArmor_xp   auto hidden
-float  property  fortifyLightArmor_xp   auto hidden
-float  property  fortifyHealth_xp       auto hidden
-float  property  fortifyHealRate_xp     auto hidden
-float  property  fortifyMagickaRate_xp  auto hidden
-float  property  fortifyStaminaRate_xp  auto hidden
-float  property  fortifySneak_xp        auto hidden
-float  property  fortifyAlteration_xp   auto hidden
-float  property  fortifyConjuration_xp  auto hidden
-float  property  fortifyDestruction_xp  auto hidden
-float  property  fortifyIllusion_xp     auto hidden
-float  property  fortifyRestoration_xp  auto hidden
+
+float  property  fortifyAlchemy_xp      auto hidden conditional
+float  property  fortifyLockpicking_xp  auto hidden conditional
+float  property  fortifyCarry_xp        auto hidden conditional
+float  property  fortifyArchery_xp      auto hidden conditional
+float  property  fortifyOneHanded_xp    auto hidden conditional
+float  property  fortifyTwoHanded_xp    auto hidden conditional
+float  property  fortifyBlock_xp        auto hidden conditional
+float  property  fortifyHeavyArmor_xp   auto hidden conditional
+float  property  fortifyLightArmor_xp   auto hidden conditional
+float  property  fortifyHealth_xp       auto hidden conditional
+float  property  fortifyHealRate_xp     auto hidden conditional
+float  property  fortifyMagickaRate_xp  auto hidden conditional
+float  property  fortifyStaminaRate_xp  auto hidden conditional
+float  property  fortifySneak_xp        auto hidden conditional
+float  property  fortifyAlteration_xp   auto hidden conditional
+float  property  fortifyConjuration_xp  auto hidden conditional
+float  property  fortifyDestruction_xp  auto hidden conditional
+float  property  fortifyIllusion_xp     auto hidden conditional
+float  property  fortifyRestoration_xp  auto hidden conditional
 
 
 Event OnInit()
-	;learnEnabled = Delegator.enchantEffectsCount
-	;debug.trace(">>>>>>>>>>>>>>>>>>>>.. EXTRACTING INFO FROM Learn_Delegator (need to make sure it's initialized) - enchantEffectsCount.Length == " + learnEnabled.Length)
 	RegisterForSingleUpdate(30.0)
-	; RegisterForModEvent("EA_LearnAbilityUpkeep", "LearnAbilityUpkeep")
 EndEvent
 
-; Event OnPlayerLoadGame()
-;     RegisterForModEvent("EA_LearnAbilityUpkeep", "LearnAbilityUpkeep")
-;     int i = IsLearning.Length
-;     while (i)
-;     	i -= 1
-;     	if (IsLearning[i])
-;     		SendModEvent("EA_LearnAbilityUpkeep")
-;     		return
-;     	endif
-;     endWhile
-; EndEvent
 
 Event OnUpdate()
 	;apparently, gametime registrations dont work until player gains controls
@@ -74,42 +57,45 @@ Event OnUpdateGameTime()
 	registerForSingleUpdateGameTime(12.0)
 EndEvent
 Function awardIdleExperience()
+	;;;;;;;;;;;;;;;;;;;;;;;;;;
 EndFunction
 
-Function LearnBlock()
+Function LearnBlock(float modifier = 1.0)
 	debug.notification("LearnBlock called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnBlock CALLED SUCCESSFULLY")
 EndFunction
-Function LearnHeavyArmor()
+Function LearnHeavyArmor(float modifier = 1.0)
+	;need to base this off the count, updated in UpdateHeavyArmorCount() function below
 	debug.notification("LearnHeavyArmor called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnHeavyArmor CALLED SUCCESSFULLY")
 EndFunction
-Function LearnLightArmor()
+Function LearnLightArmor(float modifier = 1.0)
+	;need to base this off the count, updated in UpdateLightArmorCount() function below
 	debug.notification("LearnLightArmor called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnLightArmor CALLED SUCCESSFULLY")
 EndFunction
-Function LearnHealth(float modifier) ;num seconds health was below 50%
+Function LearnHealth(float modifier = 1.0) ;num seconds health was below 50%
 	;just take square root of modifier for learn amount.
 	debug.notification("LearnHealth called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnHealth CALLED SUCCESSFULLY (modifier == " + modifier + ")")
 EndFunction
-Function LearnMagicka()
+Function LearnMagicka(float modifier = 1.0)
 	debug.notification("LearnMagicka called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnMagicka CALLED SUCCESSFULLY")
 EndFunction
-Function LearnHealRate()
+Function LearnHealRate(float modifier = 1.0)
 	debug.notification("LearnHealRate called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnHealRate CALLED SUCCESSFULLY")
 EndFunction
-Function LearnMagickaRate()
+Function LearnMagickaRate(float modifier = 1.0)
 	debug.notification("LearnMagickaRate called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnMagickaRate CALLED SUCCESSFULLY")
 EndFunction
-Function LearnStamina(bool learnStamina, bool learnStaminaRate)
+Function LearnStamina(bool learnStamina, bool learnStaminaRate, float modifier = 1.0)
 	debug.notification("LearnStamina (stamina=" + learnStamina + "  staminaRate=" + learnStaminaRate + ")")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnStaminaRate CALLED SUCCESSFULLY (stamina=" + learnStamina + "  staminaRate=" + learnStaminaRate + ")")
 EndFunction
-Function LearnPickpocket(float modifier)
+Function LearnPickpocket(float modifier = 1.0)
 	debug.notification("LearnPickpocket called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnPickpocket CALLED SUCCESSFULLY (modifier == " + modifier + ")")
 EndFunction
@@ -120,17 +106,85 @@ EndFunction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+
+Function LearnAlchemy(float modifier = 1.0)
+	;my player had about 1000 total "points" around level 25. most players would probably reach 5,000-10,000 by level 40/50. I remember I wasn't going nuts collecting ingredients or skilling up alchemy..
+	debug.notification("LearnAlchemy called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnAlchemy CALLED SUCCESSFULLY (modifier == " + modifier + ")")
+EndFunction
+
+Function LearnWeapon(int weaponType)
+	;my player had about 550 kills at level 25
+	if (weaponType == ONEHANDED)
+		LearnOneHanded()
+	elseif (weaponType == TWOHANDED)
+		LearnTwoHanded()
+	elseif (weaponType == BOW)
+		LearnArchery()
+	endif
+EndFunction
+
+Function LearnOneHanded(float modifier = 1.0)
+	debug.notification("LearnOneHanded called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnOneHanded CALLED SUCCESSFULLY")
+EndFunction
+Function LearnTwoHanded(float modifier = 1.0)
+	debug.notification("LearnTwoHanded called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnTwoHanded CALLED SUCCESSFULLY")
+EndFunction
+Function LearnArchery(float modifier = 1.0)
+	debug.notification("LearnArchery called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnArchery CALLED SUCCESSFULLY")
+EndFunction
+
+Function LearnCarry(float modifier = 1.0)
+	;this function is passed # of minutes enchantment worn. Probably shoot for 100 hours to master?
+	debug.notification("LearnCarry called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnCarry CALLED SUCCESSFULLY (modifier == " + modifier + ")")
+EndFunction
+
+Cell lastCell
+float lockpickingModifier = 1.0
+
+Function LearnLockpicking(float modifier = 1.0)
+	;get to 100 to master.
+	Cell thisCell = playerRef.GetParentCell()
+	if (thisCell == lastCell) ;limit gain from something like thieves guild practice locks (to the integral of 0.98^x)
+		lockpickingModifier *= 0.98
+	else
+		lastCell = thisCell
+		lockpickingModifier = 1.0
+	endif
+	fortifyLockpicking_xp += lockpickingModifier
+EndFunction
+
+Function LearnPersuasion(float modifier = 1.0)
+	debug.notification("LearnPersuasion called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnPersuasion CALLED SUCCESSFULLY (modifier == " + modifier + ")")
+	; persuasionTasks  = Game.QueryStat("Houses Owned") * 200
+	; persuasionTasks += Game.QueryStat("Stores Invested In") * 300      ;~ 1670 points at level 25 (860 barter, 810 other points based on this formula)
+	; persuasionTasks += Game.QueryStat("Barters")                       ;(but keep in mind points only will count while wearing the correct enchantment...)
+	; persuasionTasks += Game.QueryStat("Persuasions") * 40
+	; persuasionTasks += Game.QueryStat("Bribes") * 60
+	; persuasionTasks += Game.QueryStat("Intimidations") * 80
+	; persuasionTasks += (playerRef.GetBaseActorValue("Speechcraft") * 10.0) as int
+EndFunction
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 float sneakModifier = 1.0
 
 Function LearnSneak(float modifier = 1.0, bool idling = false)
    ;if zero, should still maybe grant a small bit of experience
 	if (idling)
-		fortifySneak_xp += sneakModifier
-		sneakModifier = sneakModifier * 0.95 ;limits idle experience gain to the integral of (0.95^x)
+		modifier *= sneakModifier
+		sneakModifier *= 0.95 ;limits idle experience gain to the integral of (0.95^x)
 	else
-		fortifySneak_xp += modifier
 		sneakModifier = 1.0
 	endif
+	fortifySneak_xp += modifier
 
 	debug.notification("LearnSneak (mod: " + modifier + "  sneakMod: " + sneakModifier + "  total: " + fortifySneak_xp + ")")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnSneak CALLED SUCCESSFULLY (mod: " + modifier + "  sneakMod: " + sneakModifier + "  total: " + fortifySneak_xp + ")")
@@ -205,27 +259,27 @@ Function LearnMagic(int magicSchool, Form castedSpell)
 EndFunction
 
 
-Function LearnAlteration(float modifier)
+Function LearnAlteration(float modifier = 1.0)
 	debug.notification("LearnAlteration (modifier == " + modifier + ")")
 	fortifyAlteration_xp += modifier
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnAlteration CALLED SUCCESSFULLY (modifier== " + modifier + "  total==" + fortifyAlteration_xp + ")")
 EndFunction
-Function LearnConjuration(float modifier)
+Function LearnConjuration(float modifier = 1.0)
 	debug.notification("LearnConjuration (modifier == " + modifier + ")")
 	fortifyConjuration_xp += modifier
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnConjuration CALLED SUCCESSFULLY (modifier== " + modifier + "  total==" + fortifyConjuration_xp + ")")
 EndFunction
-Function LearnDestruction(float modifier)
+Function LearnDestruction(float modifier = 1.0)
 	debug.notification("LearnDestruction (modifier == " + modifier + ")")
 	fortifyDestruction_xp += modifier
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnDestruction CALLED SUCCESSFULLY (modifier== " + modifier + "  total==" + fortifyDestruction_xp + ")")
 EndFunction
-Function LearnIllusion(float modifier)
+Function LearnIllusion(float modifier = 1.0)
 	debug.notification("LearnIllusion (modifier == " + modifier + ")")
 	fortifyIllusion_xp += modifier
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnIllusion CALLED SUCCESSFULLY (modifier== " + modifier + "  total==" + fortifyIllusion_xp + ")")
 EndFunction
-Function LearnRestoration(float modifier)
+Function LearnRestoration(float modifier = 1.0)
 	debug.notification("LearnRestoration (modifier == " + modifier + ")")
 	fortifyRestoration_xp += modifier
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnRestoration CALLED SUCCESSFULLY (modifier== " + modifier + "  total==" + fortifyRestoration_xp + ")")
@@ -235,19 +289,19 @@ EndFunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  LEARN RESISTANCE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-Function LearnResistFire()
+Function LearnResistFire(float modifier = 1.0)
 	debug.notification("ResistFire called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> ResistFire CALLED SUCCESSFULLY")
 EndFunction
-Function LearnResistFrost()
+Function LearnResistFrost(float modifier = 1.0)
 	debug.notification("ResistFrost called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> ResistFrost CALLED SUCCESSFULLY")
 EndFunction
-Function LearnResistShock()
+Function LearnResistShock(float modifier = 1.0)
 	debug.notification("ResistShock called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> ResistShock CALLED SUCCESSFULLY")
 EndFunction
-Function LearnResistMagic()
+Function LearnResistMagic(float modifier = 1.0)
 	debug.notification("ResistMagic called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> ResistMagic CALLED SUCCESSFULLY")
 EndFunction
@@ -266,54 +320,9 @@ EndFunction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  LEARN UTILITIES ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Function UpdateHeavyArmorCount(int newCount)
+	;will send number between 0 and 4 inclusive
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> UpdateHeavyArmorCount CALLED SUCCESSFULLY (newCount == " + newCount + ")")
 EndFunction
 Function UpdateLightArmorCount(int newCount)
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> UpdateLightArmorCount CALLED SUCCESSFULLY (newCount == " + newCount + ")")
 EndFunction
-
-
-Function SetEnabled(int enchantID, bool enableFlag)
-	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> WARNING, THIS FUNCTION SHOULD BE DEPRICATEDD!!!!!!")
-	;learnEnabled[enchantID] = enableFlag
-EndFunction
-
-
-
-; Event OnMagicEffectApply(ObjectReference caster, MagicEffect mgef)
-;     if (caster == playerRef)
-;     	int thisEffect = EnchantmentEffects.find(mgef)
-;     	if (thisEffect >= 0)
-;     		if (!IsLearning[thisEffect])
-;     			playerRef.addSpell(LearningAbilities[thisEffect])
-;     			SendModEvent("EA_LearnAbilityUpkeep")
-;     		endif
-;     	endif
-;     endif
-; EndEvent
-
-; MagicEffect[] property EnchantmentEffects auto
-; Spell[]       property LearningAbilities  auto
-; bool[]        property IsLearning         auto
-
-
-; bool isUpkeeping
-; Event LearnAbilityUpkeep(string eventName, string strArg, float numArg, Form sender)
-; 	if isUpkeeping
-; 		return
-; 	endif
-; 	isUpkeeping = true
-; 	Utility.Wait(1200.0) ;20 min
-; 	;check effects
-; 	;if no bools left, set isUpkeeping to false
-; 	;call self again
-; 	int i = IsLearning.Length
-; 	while (i)
-; 		i -= 1
-; 		if (IsLearning[i])
-; 			if (!playerRef.HasMagicEffect(EnchantmentEffects[i]))
-
-; 				;well, can't just remove it, because others use it too.... some are shared...
-; EndEvent
-
-;then just poll every 30 min or so... remove any effects that aren't on user anymore? Or onplayerloadgame?
