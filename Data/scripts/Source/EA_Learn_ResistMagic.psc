@@ -9,6 +9,7 @@ Auto State Active
 			if (caster != playerRef)
 				if (mgef != cachedMgef)
 					hostile = mgef.isEffectFlagSet(0x01) ;hostile
+					cachedMgef = mgef
 				endif
 				if (hostile) ;hostile
 					learnManager.LearnResistMagic()
