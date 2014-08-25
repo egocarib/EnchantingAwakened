@@ -1,4 +1,5 @@
 Scriptname EA_Learn_Delegator extends ReferenceAlias
+{delegates various tasks necessary for learning to work}
 
 Actor            property playerRef            auto
 EA_ConfigMenu    property ConfigMenu           auto

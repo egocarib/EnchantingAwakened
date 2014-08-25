@@ -36,7 +36,7 @@ Event OnObjectUnequipped(Form baseObject, ObjectReference ref)
 EndEvent
 
 Function UpdateHeavyArmorCount()
-	registerForSingleUpdate(3.0) ;equip event spamkiller (new registrations will cancel previous)
+	registerForSingleUpdate(3.0) ;prevent equip event spam
 EndFunction
 
 Event OnUpdate()
