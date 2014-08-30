@@ -42,7 +42,6 @@ Event OnInit()
 	RegisterForSingleUpdate(30.0)
 EndEvent
 
-
 Event OnUpdate()
 	;apparently, gametime registrations dont work until player gains controls
 	if (MQ101.GetCurrentStageID() >= 240)
@@ -171,6 +170,15 @@ Function LearnPersuasion(float modifier = 1.0)
 	; persuasionTasks += (playerRef.GetBaseActorValue("Speechcraft") * 10.0) as int
 EndFunction
 
+Function LearnWaterbreathing(float modifier = 1.0)
+	debug.notification("LearnWaterbreathing called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnWaterbreathing CALLED SUCCESSFULLY (modifier == " + modifier + ")")
+EndFunction
+
+Function LearnSmithing(float modifier = 1.0)
+	debug.notification("LearnSmithing called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnSmithing CALLED SUCCESSFULLY (modifier == " + modifier + ")")
+EndFunction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
