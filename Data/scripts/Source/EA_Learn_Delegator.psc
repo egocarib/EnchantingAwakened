@@ -1,6 +1,7 @@
 Scriptname EA_Learn_Delegator extends ReferenceAlias
 {delegates various tasks necessary for learning to work}
 
+
 Actor            property playerRef            auto
 EA_ConfigMenu    property ConfigMenu           auto
 Message          property EA_SeeMenuForDetails auto
@@ -183,6 +184,8 @@ EndFunction
 	enchantEffects[46] = EnchRobesFortifyRestorationConstantSelf
 	enchantEffects[47] = EA_EnchRobesRestorationBase
 
+
+	;;ABILITY CODES HAVE CHANGED SLIGHTLY FROM WHAT'S LISTED BELOW, BUT THIS GIVES A GOOD GENERAL IDEA WHAT'S GOING ON...
 
 	abilityCodes[0]  = 0    ; EnchFortifyAlchemyConstantSelf
 	abilityCodes[1]  = 1    ; EnchFortifyArcheryConstantSelf
