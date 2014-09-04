@@ -11,8 +11,8 @@ class ActorMagicCaster // : MagicCaster [have not found example of NonActorMagic
 public:
 	enum
 	{
-		kSource_Left,           //(observed: chaurus spit)
-		kSource_Right,
+		kSource_LeftHand,		//(observed: chaurus spit)
+		kSource_RightHand,
 		kSource_Voice,
 		kSource_Projectile		//???  (observed: hit from enchanted bow, chaurus bite [each had projectile, but chaurus spit and spells also had projectile, so not sure exactly...])
 	};
