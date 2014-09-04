@@ -58,7 +58,8 @@ public:
 	TESObjectREFR*		GetProjectileRef();
 	TESForm*			GetProjectileForm();
 	ActorMagicCaster*	GetMagicHitData();
-	bool				GetEnchantmentHitData(EnchantmentItem* &enchantment, bool &leftHandSource);
+	UInt32				GetMagicHitSource();
+	EnchantmentItem*	GetMagicHitEnchantment();
 };
 
 
