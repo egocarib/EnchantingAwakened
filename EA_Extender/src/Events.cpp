@@ -6,8 +6,11 @@
 
 #include "Types.h"
 #include "Events.h"
+#include "EquipData.h"
+#include "ExtraEnchantmentInfo.h"
 
 #include <time.h>
+#include <map>
 
 EventDispatcher<Events::TESEquipEvent>*	g_equipEventDispatcher = (EventDispatcher<Events::TESEquipEvent>*) 0x012E4EA0;
 Events::TESEquipEventHandler			g_equipEventHandler;
@@ -59,27 +62,26 @@ ActorMagicCaster* TESHitEvent::GetMagicHitData() //enchantment or other spell ef
 	return NULL;
 }
 
-bool TESHitEvent::GetEnchantmentHitData(EnchantmentItem* &enchantment, bool &leftHandSource)
+UInt32 TESHitEvent::GetMagicHitSource()
+{
+	ActorMagicCaster* magicHitData = GetMagicHitData();
+	return (magicHitData) ? magicHitData->source : 0xFFFFFFFF;
+}
+
+EnchantmentItem* TESHitEvent::GetMagicHitEnchantment()
 {
 	//enchantment hit will have either weapon or enchantment as sourceForm (melee & bow attacks, respectively)
-	//I believe this should always retrieve valid enchantment, but source data returned in case it needs to be manually retrieved.
 	TESForm* src = LookupFormByID(sourceFormID);
-	if (src)
-	{
-		enchantment = DYNAMIC_CAST(src, TESForm, EnchantmentItem);
-		if (enchantment || DYNAMIC_CAST(src, TESForm, TESObjectWEAP))
-		{
-			ActorMagicCaster* magicHitData = GetMagicHitData();
-			if (!magicHitData || magicHitData->source == ActorMagicCaster::kSource_Voice)
-				return false;
-			if (!enchantment) //enchantment stored here if it wasn't in sourceFormID -->
+	EnchantmentItem* enchantment = DYNAMIC_CAST(src, TESForm, EnchantmentItem);
+	if (!enchantment)
+		if (DYNAMIC_CAST(src, TESForm, TESObjectWEAP))
+			if (ActorMagicCaster* magicHitData = GetMagicHitData())
 				enchantment = DYNAMIC_CAST(magicHitData->magicItem, MagicItem, EnchantmentItem);
-			leftHandSource = (magicHitData->source == ActorMagicCaster::kSource_Left);
-			return true;
-		}
-	}
-	return false;
+
+	return enchantment;
 }
+
+
 
 
 
@@ -91,45 +93,20 @@ bool TESHitEvent::GetEnchantmentHitData(EnchantmentItem* &enchantment, bool &lef
 
 EventResult TESEquipEventHandler::ReceiveEvent(TESEquipEvent * evn, EventDispatcher<TESEquipEvent> * dispatcher)
 {
+	static Actor* player = DYNAMIC_CAST((*g_thePlayer), PlayerCharacter, Actor);
+
+	if (!evn || evn->actor != player)
+		return kEvent_Continue;
+
+	TESForm* equippedForm = LookupFormByID(evn->equippedFormID);
+	EnchantmentItem* enchantment = DYNAMIC_CAST(equippedForm, TESForm, EnchantmentItem);
+	if (!enchantment || enchantment->data.unk14 == 0x0C) //ignore staff enchantments, for now (may add later)
+		return kEvent_Continue;
 
 	if (evn->isEquipping)
-		_MESSAGE("equipped 0x%08X", evn->equippedFormID);
-
-	// static bool isEquippingEnchantment = false;
-	// static std::map<Actor*, EnchantmentItem*> eq_map;
-
-	// if (!evn)
-	// 	return kEvent_Continue;
-
-	// TESForm* eqForm = LookupFormByID(evn->equippedFormID);
-
-	// if (!isEquippingEnchantment)
-	// {
-	// 	EnchantmentItem* eqEnch = DYNAMIC_CAST(eqForm, TESForm, EnchantmentItem);
-	// 	if (eqEnch)
-	// 	{
-	// 		eq_map[evn->actor] = eqEnch;	//Map enchantment to actor
-	// 		isEquippingEnchantment = true;
-	// 		return kEvent_Continue;			//Wait for weapon equip event to come next
-	// 	}
-	// }
-
-	// else //Enchantment equip event was just received (this is reliable for every enchanted weapon equip or unequip, except when
-	// 	//the game first loads if player had something equipped already when last save was made - so, need to update manually on first load)
-	// {
-	// 	TESObjectWEAP* eqWeap = DYNAMIC_CAST(eqForm, TESForm, TESObjectWEAP);
-	// 	if (eqWeap)
-	// 	{
-	// 		std::map<Actor*, EnchantmentItem*>::iterator it = eq_map.find(evn->actor);
-	// 		std::map<Actor*, EnchantmentItem*>::iterator itEnd = eq_map.end();
-	// 		if (it != itEnd)
-	// 		{
-	// 			eq_map.erase(it);
-	// 			EAInternal::UpdateCurrentEquipInfo(evn->actor);
-	// 		}
-	// 	}
-	// 	isEquippingEnchantment = false;
-	// }
+		g_playerEquippedWeaponEnchantments.Push(evn->equippedFormID);
+	else
+		g_playerEquippedWeaponEnchantments.Pop(evn->equippedFormID);
 
 	return kEvent_Continue;
 }
@@ -137,29 +114,36 @@ EventResult TESEquipEventHandler::ReceiveEvent(TESEquipEvent * evn, EventDispatc
 
 EventResult TESHitEventHandler::ReceiveEvent(TESHitEvent * evn, EventDispatcher<TESHitEvent> * dispatcher)
 {
+	//TODO: build these in as private variables for TESHitEventHandler
 	static TESObjectREFR* player = DYNAMIC_CAST((*g_thePlayer), PlayerCharacter, TESObjectREFR);
-	static time_t timer;
+	static std::map<EnchantmentItem*, time_t> hitDelayMap;
 
 	if (!evn || evn->caster != player)
-		return kEvent_Continue;
+		{_MESSAGE("evn aborted: NOT PLAYER"); return kEvent_Continue; }
 
-	//I should also keep track of a bool that indicates whether the player is even wielding an enchanted item,
-	//if they are not, I can skip this whole event, since it will be constant unnecessary processing.
-	//   (mark this using equip event, and perhaps interface with Enchanted Arsenal?)
+	if (!g_playerEquippedWeaponEnchantments.HasData()) //Not wielding an enchanted weapon
+		{_MESSAGE("evn aborted: PLAYER NOT WIELDING ENCHANTED ITEM"); return kEvent_Continue;}
 
-	time_t thisTime;
-	time(&thisTime);
-	_MESSAGE("difftime equals %u", difftime(thisTime, timer));
-	if (difftime(thisTime, timer) < 1.0) //timer prevents spam and also multi-hit events sent by enchantment with multiple effects
-		return kEvent_Continue;
 
 	//event - only advance timer if recorded enchant hit.
 
-	EnchantmentItem* enchantment;
-	bool leftHandSource;
-	if (!evn->GetEnchantmentHitData(enchantment, leftHandSource))
-		return kEvent_Continue;
-	
+	EnchantmentItem* enchantment = evn->GetMagicHitEnchantment();
+
+	if (!enchantment) //wasn't retrieved from event data (always worked in testing, but just in case)
+		if (!(enchantment = ExtraEnchantmentInfo::GetActorSourceEnchantment(*g_thePlayer, evn->GetMagicHitSource())))
+			{_MESSAGE("evn aborted: can't get enchantment data"); return kEvent_Continue;}
+
+
+	//timer is used to ignore multiple hit events triggered by a single enchantment
+	time_t thisTime = time(NULL);
+	if (difftime(thisTime, hitDelayMap[enchantment]) < 1.0)
+		{_MESSAGE("hit event from enchantment 0x%08X IGNORED, not enough time elapsed..", enchantment->formID); return kEvent_Continue;}
+	hitDelayMap[enchantment] = thisTime;
+
+
+	_MESSAGE("enchantment 0x%08X successfully processed in hit event", enchantment->formID);
+	if (enchantment->data.unk14 == 0x0C)
+		_MESSAGE("    ...but, it was a staff enchantment. FROWNY FACE FROWNY FACE");
 	//process enchantment hit, increment learning, etc.
 	//map of enchantments and # of times actor hit someone else? Power attacks worth slightly more?
 	//can either send event from here, or use an IsInCombat ability's OnEffectFinish() event in papyrus to
@@ -167,9 +151,7 @@ EventResult TESHitEventHandler::ReceiveEvent(TESHitEvent * evn, EventDispatcher<
 
 	//........
 
-	time(&timer); //advance timer
-	_MESSAGE("enchant hit event recorded. timer now advanced to %u (0x%08X) (%f)", timer);
-	_MESSAGE("enchantment: 0x%08X  caster: 0x%08X  source: %s", (enchantment) ? enchantment->formID : NULL, evn->caster->formID, leftHandSource ? "LEFT" : "RIGHT");
+	_MESSAGE("    enchantment: 0x%08X  caster: 0x%08X  source: %s", (enchantment) ? enchantment->formID : NULL, evn->caster->formID, evn->GetMagicHitSource() ? "LEFT" : "RIGHT");
 
 	return kEvent_Continue;
 }
