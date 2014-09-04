@@ -22,6 +22,8 @@
 #include <shlobj.h>
 #include <vector>
 
+#include "Events.h"
+
 
 IDebugLog						gLog;
 const char*						kLogPath = "\\My Games\\Skyrim\\Logs\\EA_Extender.log";
@@ -30,7 +32,8 @@ PluginHandle	g_pluginHandle = kPluginHandle_Invalid;
 
 SKSEScaleformInterface		* g_scaleform = NULL;
 SKSESerializationInterface	* g_serialization = NULL;
-SKSEPapyrusInterface   *g_papyrus = NULL;
+SKSEPapyrusInterface   		* g_papyrus = NULL;
+SKSEMessagingInterface 		* g_messageInterface = NULL;
 
 class VMClassRegistry;
 class VMValue;
@@ -741,6 +744,40 @@ bool RegisterPapyrusEAExtender(VMClassRegistry* registry)
 }
 
 
+void InitialLoadSetup()
+{
+	_MESSAGE("Building Event Sinks...");
+
+	// //Retrieve the SKSEActionEvent dispatcher
+	// void * dispatchPtr = g_messageInterface->GetEventDispatcher(SKSEMessagingInterface::kDispatcher_ActionEvent);
+	// g_skseActionEventDispatcher = (EventDispatcher<SKSEActionEvent>*)dispatchPtr;
+
+	//Add event sinks
+	g_equipEventDispatcher->AddEventSink(&g_equipEventHandler);
+	g_hitEventExDispatcher->AddEventSink(&g_hitEventExHandler);
+	//g_skseActionEventDispatcher->AddEventSink(&g_skseActionEventHandler);
+
+	//Distinguish custom library from main library (version 2.0 addition)
+	//customMGEFInfoLibrary.CUSTOMLIB = true;
+}
+
+void SKSEMessageReceptor(SKSEMessagingInterface::Message* msg)
+{
+	//kMessage_InputLoaded only sent once, on initial Main Menu load
+	if (msg->type == SKSEMessagingInterface::kMessage_InputLoaded)
+		InitialLoadSetup();
+
+	//Sent immediately before the game begins loading a save. Using this instead of default Serialization
+	//Load because effects must be pre-loaded in order to display correctly during the initial game load.
+	// else if (msg->type == SKSEMessagingInterface::kMessage_PreLoadGame)
+	// {
+	// 	EAPreload::EAPreloadInterface* preloadInterface = EAPreload::EAPreloadInterface::GetInterface();
+	// 	preloadInterface->EstablishCosavePath(msg->data);
+	// 	preloadInterface->PreloadPlugin();
+	// }
+}
+
+
 extern "C"
 {
 
@@ -818,6 +855,13 @@ bool SKSEPlugin_Query(const SKSEInterface * skse, PluginInfo * info)
 		return false;
 	}
 
+	//Get the messaging interface and query its version
+	g_messageInterface = (SKSEMessagingInterface *)skse->QueryInterface(kInterface_Messaging);
+	if(!g_messageInterface)
+		{ _MESSAGE("Couldn't Get Messaging Interface"); return false; }
+	if(g_messageInterface->interfaceVersion < SKSEMessagingInterface::kInterfaceVersion)
+		{ _MESSAGE("Messaging Interface Too Old (%d Expected %d)", g_messageInterface->interfaceVersion, SKSEMessagingInterface::kInterfaceVersion); return false; }
+
 	// ### do not do anything else in this callback
 	// ### only fill out PluginInfo and return true/false
 
@@ -830,6 +874,9 @@ bool SKSEPlugin_Load(const SKSEInterface * skse)
 	_MESSAGE("Interfacing with Papyrus...");
 
 	g_papyrus->Register(RegisterPapyrusEAExtender);
+
+	//Register callback for SKSE messaging interface
+	g_messageInterface->RegisterListener(g_pluginHandle, "SKSE", SKSEMessageReceptor);
 
 	return true;
 }
