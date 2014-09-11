@@ -53,7 +53,10 @@ class MenuBladeMonitor extends MovieClip
 	private function DisableDisallowedItems(): Void
 	{
 		if (_bDisablerInvalidate) //Prevent recursion when we InvalidateListData() from this function
-		  	{_bDisablerInvalidate = false; return;}
+		{
+			_bDisablerInvalidate = false;
+			return;
+		}
 
 		var entries:Array = _craftMenu.ItemsList.entryList;
 		for (var i:Number = 0; i < entries.length; i++)
@@ -68,24 +71,6 @@ class MenuBladeMonitor extends MovieClip
 		
 		_bDisablerInvalidate = true;
 		_craftMenu.InvalidateListData();
-	}
-	
-	private var OnWeaponEnchantmentSelect:Function = function(prop, oldVal, newVal, enchantmentName)
-	{
-		skse.SendModEvent("EA_OnWeaponEnchantmentSelect", enchantmentName, newVal, 0);
-		return newVal;
-	}
-	
-	//This is going to be used to properly detect all base enchantments that make up a custom
-	//player-crafted enchantment that is created. Will need this info for the learning system.
-	private function MonitorWeaponEnchantmentSelections(): Void
-	{
-		var entries:Array = _craftMenu.ItemsList.entryList;
-		for (var i:Number = 0; i < entries.length; i++)
-		{
-			if (entries[i].filterFlag == ENCHANTMENT_EFFECT_WEAPON)
-				entries[i].watch("enabled", OnWeaponEnchantmentSelect, entries[i].text);
-		}
 	}
 
 	private function OnMenuBladeOpen(event:Object): Void
@@ -119,7 +104,6 @@ class MenuBladeMonitor extends MovieClip
 
 		var thisEntry:Object = _craftMenu.ItemsList.selectedEntry;
 		var disenchantMenu:Boolean = (thisEntry.filterFlag == WEAPON_ENCHANTED || thisEntry.filterFlag == ARMOR_ENCHANTED);
-		var weaponEnchantmentHighlighted:Boolean = (thisEntry.filterFlag == ENCHANTMENT_EFFECT_WEAPON);
 
 		if (_currentFilterFocus != thisEntry.filterFlag)
 		{
@@ -129,9 +113,6 @@ class MenuBladeMonitor extends MovieClip
 
 		if (disenchantMenu)
 			DisableDisallowedItems();
-		
-		if (weaponEnchantmentHighlighted)
-			MonitorWeaponEnchantmentSelections();
 
 		if (disenchantMenu && _noDisenchantNames[thisEntry.text] == 1)
 			//Remove native event listener for disallowed items:
