@@ -3,7 +3,6 @@ Scriptname EA_EnchantTableScript extends ReferenceAlias
 EA_PCDisenchantingControl  property  playerTracker  auto
 Actor                      property  playerRef      auto
 
-;ActorValueInfo  property  EnchantingAVInfo           auto hidden
 GlobalVariable  property  EA_ModSetupComplete        auto
 GlobalVariable  property  EA_EnchTableNPCOverride    auto
 GlobalVariable  property  EA_1stPersonMessages       auto
@@ -27,15 +26,12 @@ int  property  ENCHANTMENT_EFFECT_WEAPON  = 0x10  autoReadOnly ;enchantment subm
 int  property  ENCHANTMENT_EFFECT_ARMOR   = 0x20  autoReadOnly ;enchantment submenu
 int  property  SOUL_GEM                   = 0x40  autoReadOnly ;soul gem submenu
 
-;float skImpOffset
-;float tempOffset
 int currentScalePerk
 string[] disallowedItemNames ;used to prevent disenchanting of certain items in the crafting menu
 
 Event OnInit()
 	registerForSingleUpdate(0.2)
 	debug.trace("Enchanting Awakened ::::::::::::::::::::: ENCHANT TABLE SCRIPT loaded")
-
 	RegisterEvents()
 EndEvent
 
@@ -172,26 +168,7 @@ Event OnMenuFocusTypeChange(string _eventName, string _itemName, float _itemCode
 		hasExperiencePerk = false
 
 	endif
-
-	;debug
-		;in summary -- dropping the object while at table to get object ref is possible, but leads to slight blink of object that is visible
-		;
-		;	bool _debug = false
-		; 	ObjectReference dropped
-		;
-		; 	; 	debug.messagebox("Would you like to remove the enchantment from " + _itemName + "?")
-		; 	;	playerRef.removeitem(Game.GetFormFromFile(0x028433, "Dragonborn.esm")) ;TRY TO FIND OUT if displays in the same order as player inventory? or what... I think alphabetical, but how does it handle duplicate names? order by formID?
-		; 		if _itemName == "Stinger"
-		; 			dropped = playerRef.dropobject(Game.GetFormFromFile(0x012eb7, "Skyrim.esm"))
-		; 			dropped.setEnchantment(none, 0)
-		; 			dropped.setDisplayName(dropped.GetBaseObject().GetName())
-		; 			dropped.activate(playerRef)
-		;
-		; 			UI.Invoke("Crafting Menu", "_global.Main.EnchantingAwakenedMenuMonitor.doStuff")
-		; 		endif
-		; 	; 	if playerRef.getItemCount(Game.GetFormFromFile(0x028433, "Dragonborn.esm"))
-		; 	; 		dropped = playerRef.dropObject(Game.GetFormFromFile(0x028433, "Dragonborn.esm"))
-
+	
 EndEvent
 
 
