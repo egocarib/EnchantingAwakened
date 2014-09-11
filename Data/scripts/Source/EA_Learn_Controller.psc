@@ -12,9 +12,10 @@ int  property  DESTRUCTION = 2  autoreadonly
 int  property  ILLUSION    = 3  autoreadonly
 int  property  RESTORATION = 4  autoreadonly
 
-int  property  ONEHANDED   = 0  autoreadonly
-int  property  TWOHANDED   = 1  autoreadonly
-int  property  BOW         = 2  autoreadonly
+int  property  UNARMED     = 0  autoreadonly
+int  property  ONEHANDED   = 1  autoreadonly
+int  property  TWOHANDED   = 2  autoreadonly
+int  property  BOW         = 3  autoreadonly
 
 
 float  property  fortifyAlchemy_xp      auto hidden conditional
@@ -121,6 +122,8 @@ Function LearnWeapon(int weaponType)
 		LearnTwoHanded()
 	elseif (weaponType == BOW)
 		LearnArchery()
+	elseif (weaponType == UNARMED)
+		LearnUnarmed()
 	endif
 EndFunction
 
@@ -135,6 +138,10 @@ EndFunction
 Function LearnArchery(float modifier = 1.0)
 	debug.notification("LearnArchery called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnArchery CALLED SUCCESSFULLY")
+EndFunction
+Function LearnUnarmed(float modifier = 1.0)
+	debug.notification("LearnUnarmed called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnUnarmed CALLED SUCCESSFULLY")
 EndFunction
 
 Function LearnCarry(float modifier = 1.0)
@@ -178,6 +185,11 @@ EndFunction
 Function LearnSmithing(float modifier = 1.0)
 	debug.notification("LearnSmithing called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnSmithing CALLED SUCCESSFULLY (modifier == " + modifier + ")")
+EndFunction
+
+Function LearnSpeed(float modifier = 1.0)
+	debug.notification("LearnSpeed called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> LearnSpeed CALLED SUCCESSFULLY (modifier == " + modifier + ")")
 EndFunction
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -313,8 +325,10 @@ Function LearnResistMagic(float modifier = 1.0)
 	debug.notification("ResistMagic called successfully")
 	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> ResistMagic CALLED SUCCESSFULLY")
 EndFunction
-
-
+Function LearnResistPoison(float modifier = 1.0)
+	debug.notification("ResistPoison called successfully")
+	debug.trace("Enchanting Awakened >>>>>>>>>>>>>>>>>>>>> ResistPoison CALLED SUCCESSFULLY (modifier == " + modifier + ")")
+EndFunction
 
 
 

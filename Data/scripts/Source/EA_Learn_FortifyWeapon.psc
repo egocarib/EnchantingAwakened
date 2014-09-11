@@ -1,21 +1,19 @@
 Scriptname EA_Learn_FortifyWeapon extends EA_Learn_TemplateAME
 
 GlobalVariable[]  property  typeEnabled  auto ;Globals indicating if the effect is learn-enabled (player is wearing an enchantment with that effect)
-	;0 = FortifyOneHanded    1 = FortifyTwoHanded    2 = FortifyMarksman
-int property NOWEAPON  = -1 autoreadonly
-int property ONEHANDED =  0 autoreadonly
-int property TWOHANDED =  1 autoreadonly
-int property BOW       =  2 autoreadonly
+	;0 = FortifyUnarmed    ;1 = FortifyOneHanded    2 = FortifyTwoHanded    3 = FortifyMarksman
+int property UNARMED   = 0 autoreadonly
+int property ONEHANDED = 1 autoreadonly
+int property TWOHANDED = 2 autoreadonly
+int property BOW       = 3 autoreadonly
 
 int		equippedType
 bool[]  isDeactivated
 
 
 Event OnKillActor()
-	if (equippedType >= 0)
-		if (!isDeactivated[equippedType])
-			learnManager.LearnWeapon(equippedType)
-		endif
+	if (!isDeactivated[equippedType])
+		learnManager.LearnWeapon(equippedType)
 	endif
 EndEvent
 
@@ -49,14 +47,14 @@ Event OnUpdate() ;update equipped item type
 		if (weaponCheck >= 1 && weaponCheck <= 4)
 			equippedType = ONEHANDED
 		else
-			equippedType = NOWEAPON
+			equippedType = UNARMED
 		endif
 	endif
 EndEvent
 
 
 Event OnUpdateActiveEffects(string evnName, string strArg, float numArg, Form sender)
-	int i = 3
+	int i = 4
 	while (i)
 		i -= 1
 		isDeactivated[i] = (typeEnabled[i].GetValue() < 1.0)
@@ -65,7 +63,7 @@ EndEvent
 
 
 Event OnInit()
-    isDeactivated = new bool[3]
+    isDeactivated = new bool[4]
     OnPlayerLoadGame()
     OnUpdate()
     OnUpdateActiveEffects("", "", 0, none)
