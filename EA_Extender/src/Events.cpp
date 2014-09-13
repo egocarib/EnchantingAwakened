@@ -1,16 +1,13 @@
 #include "skse/GameRTTI.h"
-#include "skse/GameReferences.h" //req
-#include "skse/GameObjects.h" //req
-#include "skse/GameForms.h" //req
+#include "skse/GameReferences.h"
+#include "skse/GameObjects.h"
 #include "skse/Utilities.h"
-
 #include "Types.h"
 #include "Events.h"
-#include "EquipData.h"
 #include "ExtraEnchantmentInfo.h"
-
 #include <time.h>
 #include <map>
+
 
 EventDispatcher<Events::TESEquipEvent>*	g_equipEventDispatcher = (EventDispatcher<Events::TESEquipEvent>*) 0x012E4EA0;
 Events::TESEquipEventHandler			g_equipEventHandler;
@@ -24,7 +21,7 @@ namespace Events
 {
 
 TESObjectREFR* TESHitEvent::_getProjectileRef(void* obj)
-{   //tried forever to find a flag that indicates these types in contactData... but it's impossible, same flags for invalid or other types... (unless TESHitEvent has additional members, haven't tested)
+{   //tried forever to find a flag that indicates these types in contactData... but it's impossible, same flags for invalid or other types...
 	const char* rttiName = GetObjectClassName(obj);
 	if (strcmp(rttiName, "ArrowProjectile@@") == 0)
 		return DYNAMIC_CAST(obj, ArrowProjectile, TESObjectREFR);
@@ -70,11 +67,11 @@ UInt32 TESHitEvent::GetMagicHitSource()
 
 EnchantmentItem* TESHitEvent::GetMagicHitEnchantment()
 {
-	//enchantment hit will have either weapon or enchantment as sourceForm (melee & bow attacks, respectively)
+	//enchantment hit will have either weapon or enchantment as sourceForm (for melee & bow attacks, respectively)
 	TESForm* src = LookupFormByID(sourceFormID);
 	EnchantmentItem* enchantment = DYNAMIC_CAST(src, TESForm, EnchantmentItem);
 	if (!enchantment)
-		if (DYNAMIC_CAST(src, TESForm, TESObjectWEAP))
+		if (src->formType == TESObjectWEAP::kTypeID)
 			if (ActorMagicCaster* magicHitData = GetMagicHitData())
 				enchantment = DYNAMIC_CAST(magicHitData->magicItem, MagicItem, EnchantmentItem);
 
@@ -87,15 +84,43 @@ EnchantmentItem* TESHitEvent::GetMagicHitEnchantment()
 
 
 
+void TESEquipEventHandler::EquippedWeaponEnchantments::Push(UInt32 formID)
+{
+	if (formID)
+	{
+		if (enchantment01 == 0)
+			{enchantment01 = formID;
+			_MESSAGE("enchantment01 == %08X", formID);}
+		else if (enchantment02 == 0)
+			{enchantment02 = formID;
+			_MESSAGE("enchantment02 == %08X", formID);}
+		else
+			_MESSAGE("Error: cannot record equipped player weapon enchantment, data retainer already full.");
+	}
+}
 
+void TESEquipEventHandler::EquippedWeaponEnchantments::Pop(UInt32 formID)
+{
+	if (enchantment01 == formID)
+		{enchantment01 = 0;
+		_MESSAGE("enchantment01 == NULL");}
+	else if (enchantment02 == formID)
+		{enchantment02 = 0;
+		_MESSAGE("enchantment02 == NULL");}
+	else
+		_MESSAGE("Error: unequipped player weapon enchantment not found in data retainer.");
+}
 
+void TESEquipEventHandler::EquippedWeaponEnchantments::Clear()
+{
+	enchantment01 = 0;
+	enchantment02 = 0;
+}
 
 
 EventResult TESEquipEventHandler::ReceiveEvent(TESEquipEvent * evn, EventDispatcher<TESEquipEvent> * dispatcher)
 {
-	static Actor* player = DYNAMIC_CAST((*g_thePlayer), PlayerCharacter, Actor);
-
-	if (!evn || evn->actor != player)
+	if (evn->actor->baseForm != (*g_thePlayer)->baseForm)
 		return kEvent_Continue;
 
 	TESForm* equippedForm = LookupFormByID(evn->equippedFormID);
@@ -104,9 +129,13 @@ EventResult TESEquipEventHandler::ReceiveEvent(TESEquipEvent * evn, EventDispatc
 		return kEvent_Continue;
 
 	if (evn->isEquipping)
-		g_playerEquippedWeaponEnchantments.Push(evn->equippedFormID);
+		playerEquippedWeaponEnchantments.Push(evn->equippedFormID);
 	else
-		g_playerEquippedWeaponEnchantments.Pop(evn->equippedFormID);
+		playerEquippedWeaponEnchantments.Pop(evn->equippedFormID);
+
+	g_hitEventExDispatcher->RemoveEventSink(&g_hitEventExHandler);
+	if (playerEquippedWeaponEnchantments.HasData())
+		g_hitEventExDispatcher->AddEventSink(&g_hitEventExHandler);
 
 	return kEvent_Continue;
 }
@@ -114,16 +143,8 @@ EventResult TESEquipEventHandler::ReceiveEvent(TESEquipEvent * evn, EventDispatc
 
 EventResult TESHitEventHandler::ReceiveEvent(TESHitEvent * evn, EventDispatcher<TESHitEvent> * dispatcher)
 {
-	//TODO: build these in as private variables for TESHitEventHandler
-	static TESObjectREFR* player = DYNAMIC_CAST((*g_thePlayer), PlayerCharacter, TESObjectREFR);
-	static std::map<EnchantmentItem*, time_t> hitDelayMap;
-
-	if (!evn || evn->caster != player)
+	if (evn->caster->baseForm != (*g_thePlayer)->baseForm)
 		{_MESSAGE("evn aborted: NOT PLAYER"); return kEvent_Continue; }
-
-	if (!g_playerEquippedWeaponEnchantments.HasData()) //Not wielding an enchanted weapon
-		{_MESSAGE("evn aborted: PLAYER NOT WIELDING ENCHANTED ITEM"); return kEvent_Continue;}
-
 
 	//event - only advance timer if recorded enchant hit.
 
@@ -134,9 +155,9 @@ EventResult TESHitEventHandler::ReceiveEvent(TESHitEvent * evn, EventDispatcher<
 			{_MESSAGE("evn aborted: can't get enchantment data"); return kEvent_Continue;}
 
 
-	//timer is used to ignore multiple hit events triggered by a single enchantment
+	//timer is used to ignore multiple hit events triggered by a single enchantment (and to add slight delay for learn framework)
 	time_t thisTime = time(NULL);
-	if (difftime(thisTime, hitDelayMap[enchantment]) < 1.0)
+	if (difftime(thisTime, hitDelayMap[enchantment]) < 1.0) //could make this delay an ini setting. different weapons attack at different speeds.
 		{_MESSAGE("hit event from enchantment 0x%08X IGNORED, not enough time elapsed..", enchantment->formID); return kEvent_Continue;}
 	hitDelayMap[enchantment] = thisTime;
 

@@ -1,5 +1,9 @@
+#pragma once
+
+#include "[PluginLibrary]/SerializeForm.h"
 #include "skse/GameEvents.h"
 
+class EnchantmentItem;
 class ActorMagicCaster;
 class TESObjectREFR;
 class Actor;
@@ -43,12 +47,12 @@ struct TESHitEvent
 	UInt32				dupProjectileFormID;//24  (same as 0C)
 	void *				contactData01;		//28  never null but often have no rtti. either or both can be invalid. spent hours trying
 	void *				contactData02;		//2C  to correlate the type of these to flags but can't, so using rtti debug funcs for now
-	//												-Everything I've seen show up in ContactData:
-	//													ActorMagicCaster, SpellItem, EnchantmentItem, ArrowProjectile, MissileProjectile,
-	//													Explosion, TESObjectREFR, Character, PlayerCharacter
+	//												-Everything I've seen show up as contactData:
+	//													ActorMagicCaster*, SpellItem*, EnchantmentItem*, ArrowProjectile*, MissileProjectile*,
+	//													Explosion*, TESObjectREFR*, Character*, PlayerCharacter*
 	//												-Other things I expect might show up:
-	//													Actor, AlchemyItem, IngredientItem, ScrollItem, ChainExplosion, Hazard, Projectile,
-	//													BarrierProjectile, BeamProjectile, ConeProjectile, FlameProjectile, GrenadeProjectile
+	//													Actor*, AlchemyItem*, IngredientItem*, ScrollItem*, ChainExplosion*, Hazard*, Projectile*,
+	//													BarrierProjectile*, BeamProjectile*, ConeProjectile*, FlameProjectile*, GrenadeProjectile*
 
 private:
 	TESObjectREFR*		_getProjectileRef(void* obj);
@@ -65,6 +69,9 @@ public:
 
 
 
+
+
+
 //EQUIP EVENT HANDLER ==========================>
 template <>
 class BSTEventSink <TESEquipEvent>
@@ -76,8 +83,64 @@ public:
 
 class TESEquipEventHandler : public BSTEventSink <TESEquipEvent> 
 {
+private:
+
+	//MUST SERIALIZE THESE! they get removed on quit, probably on death too, need to make sure I save and load them appropriately.
+	struct EquippedWeaponEnchantments
+	{
+		UInt32	enchantment01;
+		UInt32	enchantment02;
+
+		EquippedWeaponEnchantments() : enchantment01(0), enchantment02(0) {}
+
+		bool HasData() { return (enchantment01 || enchantment02); }
+
+		void Push(UInt32 formID);
+		void Pop(UInt32 formID);
+		void Clear();
+	};
+
+	EquippedWeaponEnchantments playerEquippedWeaponEnchantments;
+
 public:
 	virtual	EventResult	ReceiveEvent(TESEquipEvent * evn, EventDispatcher<TESEquipEvent> * dispatcher);
+
+	template <typename SerializeInterface_T>
+	void Serialize_EquippedEnchantments(SerializeInterface_T* const intfc)
+	{
+		SerialFormData enchantmentForm01(enchantment01);
+		SerialFormData enchantmentForm02(enchantment02);
+		intfc->WriteRecordData(&enchantmentForm01, sizeof(SerialFormData));
+		intfc->WriteRecordData(&enchantmentForm02, sizeof(SerialFormData));
+	}
+
+	template <typename SerializeInterface_T>
+	void Deserialize_EquippedEnchantments(SerializeInterface_T* const Intfc, UInt32* const sizeRead, UInt32* const sizeExpected)
+	{
+		(*sizeRead) = (*sizeExpected) = 0;
+
+		g_hitEventExDispatcher->RemoveEventSink(&g_hitEventExHandler);
+		playerEquippedWeaponEnchantments.Clear();
+
+		for (UInt32 i = 0; i < 2; i++)
+		{
+			SerialFormData enchantmentForm;
+			(*sizeRead) += intfc->ReadRecordData(&enchantmentForm, sizeof(SerialFormData));
+			(*sizeExpected) += sizeof(SerialFormData);
+			if (*sizeRead != *sizeExpected)
+				return; //Error
+
+			UInt32 formID = 0;
+			UInt32 result = enchantmentForm.Deserialize(&formID);
+			if (result == SerialFormData::kResult_ModNotLoaded || result == SerialFormData::kResult_InvalidForm)
+				SerialFormData::OutputError(result);
+			else if (result == SerialFormData::kResult_Succeeded)
+				playerEquippedWeaponEnchantments.Push(formID);
+		}
+
+		if (playerEquippedWeaponEnchantments.HasData())
+			g_hitEventExDispatcher->AddEventSink(&g_hitEventExHandler);
+	}
 };
 
 
@@ -92,6 +155,8 @@ public:
 
 class TESHitEventHandler : public BSTEventSink <TESHitEvent>
 {
+private:
+	std::map<EnchantmentItem*, time_t> hitDelayMap;
 public:
 	virtual	EventResult ReceiveEvent(TESHitEvent * evn, EventDispatcher<TESHitEvent> * dispatcher);
 };
