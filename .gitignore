@@ -26,6 +26,7 @@ obj/
 [Dd]epricated*/
 IntermediateBuild/
 CLIK/
+test logs/
 common/
 /BuildIncrement.jse
 BuildInfo.h
