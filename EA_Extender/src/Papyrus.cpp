@@ -1,4 +1,12 @@
+#include "skse/GameForms.h"
+#include "skse/GameObjects.h"
+#include "skse/GameExtraData.h"
+#include "skse/GameData.h"
+#include "skse/GameRTTI.h"
+#include <vector>
+
 #include "Papyrus.h"
+#include "Learning.h"
 
 
 //For unpacking VMArray of various form types
@@ -8,6 +16,45 @@ void UnpackValue(VMArray<T*>* dst, VMValue* src)
 	UnpackArray(dst, src, GetTypeIDFromFormTypeID(T::kTypeID, (*g_skyrimVM)->GetClassRegistry()) | VMValue::kType_Identifier);
 }
 
+
+class MagicSkillStrings //I think I can singleton these from 0x0106B4EC to 0x0106B4FC [same order as below, no null string of course]
+{
+public:
+	static MagicSkillStrings& Instance()
+	{
+		static MagicSkillStrings instance;
+		return instance;
+	}
+
+	BSFixedString LookupSkillString(UInt32 skillNumber)
+	{
+		switch(skillNumber)
+		{
+			case 18:	return Alteration;
+			case 19:	return Conjuration;
+			case 20:	return Destruction;
+			case 21:	return Illusion;
+			case 22:	return Restoration;
+			default:	return NullString;
+		}
+	}
+
+	BSFixedString Alteration;
+	BSFixedString Conjuration;
+	BSFixedString Destruction;
+	BSFixedString Illusion;
+	BSFixedString Restoration;
+	BSFixedString NullString;
+
+private:
+	MagicSkillStrings() :
+		Alteration("Alteration"),
+		Conjuration("Conjuration"),
+		Destruction("Destruction"),
+		Illusion("Illusion"),
+		Restoration("Restoration"),
+		NullString("") {}
+};
 
 MagicSkillStrings magicSkillStrings = MagicSkillStrings::Instance();
 
@@ -39,12 +86,80 @@ inline bool IsPlayerCraftedEnchantment(EnchantmentItem* enchantment)
 
 
 
+class ExtraContainerEnchantedItemExtractor
+{
+private:
+	struct FormEnchantmentPair
+	{
+		TESForm*			form;
+		EnchantmentItem*	enchantment;
+		FormEnchantmentPair(TESForm* f, EnchantmentItem* e) : form(f), enchantment(e) {}
+	};
+
+	typedef std::vector<FormEnchantmentPair> FormEnchantmentVec;
+	
+	ExtraContainerChanges::EntryDataList*	containerList;
+	FormEnchantmentVec						enchantedItemVec;
+
+public:
+	ExtraContainerEnchantedItemExtractor(TESObjectREFR* reference) : enchantedItemVec()
+	{
+		enchantedItemVec.clear();
+		ExtraContainerChanges* pXContainerChanges = static_cast<ExtraContainerChanges*>(reference->extraData.GetByType(kExtraData_ContainerChanges));
+		containerList = (pXContainerChanges) ? pXContainerChanges->data->objList : NULL;
+	}
+
+	bool GetExtraEnchantedForms(VMArray<TESForm*>* fillForms, VMArray<EnchantmentItem*>* fillEnchantments, UInt32 startIndex, bool excludePlayerEnchants, bool excludeDisallowEnchanting)
+	{
+		if (!containerList)
+			return false;
+
+		if (enchantedItemVec.size() == 0)
+			containerList->Visit(*this);
+
+		FormEnchantmentVec::iterator it = enchantedItemVec.begin();
+		for (UInt32 i = startIndex; (i < fillForms->Length()) && (it != enchantedItemVec.end()); ++it)
+		{
+			if (excludeDisallowEnchanting && FormHasMagicDisallowEnchanting(it->form)) continue;
+			if (excludePlayerEnchants && IsPlayerCraftedEnchantment(it->enchantment)) continue;
+
+			for (UInt32 limit = 3; it->enchantment->data.baseEnchantment && (limit > 0); limit--)
+				it->enchantment = it->enchantment->data.baseEnchantment;
+
+			fillForms->Set(&it->form, i);
+			fillEnchantments->Set(&it->enchantment, i);
+
+			++i;
+		}
+
+		return true;
+	}
+
+	bool Accept(ExtraContainerChanges::EntryData* data) 
+	{
+		if (data && (data->countDelta > 0))
+		{
+			TESForm* dataForm = data->type;
+
+			if (TESObjectARMO* dataArmor = DYNAMIC_CAST(dataForm, TESForm, TESObjectARMO))
+			{
+				if (dataArmor->enchantable.enchantment)
+					enchantedItemVec.push_back(FormEnchantmentPair(dataForm, dataArmor->enchantable.enchantment));
+			}
+			else if (TESObjectWEAP* dataWeapon = DYNAMIC_CAST(dataForm, TESForm, TESObjectWEAP))
+			{
+				if (dataWeapon->enchantable.enchantment)
+					enchantedItemVec.push_back(FormEnchantmentPair(dataForm, dataWeapon->enchantable.enchantment));
+			}
+		}
+		return true;
+	}
+};
 
 
 
 
-
-namespace papyrusEAExtender
+namespace PapyrusEAExtender
 {
 	void SetNthKeyword(StaticFunctionTag* base, TESForm* thisForm, UInt32 index, BGSKeyword* newKeywordToSet)
 	{
@@ -293,61 +408,54 @@ namespace papyrusEAExtender
 				knownEnchants.push_back(ench); //player knows
 		}
 
-		if (outputKnown.Length() < knownEnchants.size())
+		UInt32 knownSize = knownEnchants.size();
+		if (outputKnown.Length() < knownSize)
 		{
-			_MESSAGE("GetPlayerKnownEnchantments overflow error: known(%u), outputCapacity(%u)", knownEnchants.size(), outputKnown.Length());
-			return 0xFFFFFFFF;
+			_MESSAGE("Error: GetPlayerKnownEnchantments Overflow: Known(%u), OutputCapacity(%u)", knownSize, outputKnown.Length());
+			knownSize = outputKnown.Length();
 		}
 
-		for (UInt32 i = 0; i < knownEnchants.size(); i++)
+		for (UInt32 i = 0; i < knownSize; i++)
 			outputKnown.Set(&knownEnchants[i], i);
 
-		return knownEnchants.size();
+		return knownSize;
 	}
 
 
+	BSFixedString GetLearnEventName(StaticFunctionTag* base)
+	{
+		return BSFixedString(LEARN_EVENT_NAME.c_str());
+	}
 }
-
-
-
-
-// template <> void UnpackValue(VMArray<TESForm*> * dst, VMValue * src)
-// {
-// 	UnpackArray(dst, src, GetTypeIDFromFormTypeID(TESForm::kTypeID, (*g_skyrimVM)->GetClassRegistry()) | VMValue::kType_Identifier);
-// }
-
-// template <> void UnpackValue(VMArray<BGSKeyword*> * dst, VMValue * src)
-// {
-// 	UnpackArray(dst, src, GetTypeIDFromFormTypeID(BGSKeyword::kTypeID, (*g_skyrimVM)->GetClassRegistry()) | VMValue::kType_Identifier);
-// }
-
 
 
 bool RegisterPapyrusEAExtender(VMClassRegistry* registry)
 {
 	registry->RegisterFunction(
-		new NativeFunction1<StaticFunctionTag, UInt32, SpellItem*>("GetSpellSkillNumber", "EA_Extender", papyrusEAExtender::GetSpellSkillNumber, registry));
+		new NativeFunction1<StaticFunctionTag, UInt32, SpellItem*>("GetSpellSkillNumber", "EA_Extender", PapyrusEAExtender::GetSpellSkillNumber, registry));
 	registry->RegisterFunction(
-		new NativeFunction1<StaticFunctionTag, BSFixedString, SpellItem*>("GetSpellSkillString", "EA_Extender", papyrusEAExtender::GetSpellSkillString, registry));
+		new NativeFunction1<StaticFunctionTag, BSFixedString, SpellItem*>("GetSpellSkillString", "EA_Extender", PapyrusEAExtender::GetSpellSkillString, registry));
 	registry->RegisterFunction(
-		new NativeFunction2<StaticFunctionTag, bool, SpellItem*, BSFixedString>("IsSpellSkillType", "EA_Extender", papyrusEAExtender::IsSpellSkillType, registry));
+		new NativeFunction2<StaticFunctionTag, bool, SpellItem*, BSFixedString>("IsSpellSkillType", "EA_Extender", PapyrusEAExtender::IsSpellSkillType, registry));
 	registry->RegisterFunction(
-		new NativeFunction2<StaticFunctionTag, void, VMArray<TESForm*>, VMArray<BSFixedString>>("GetFormNames", "EA_Extender", papyrusEAExtender::GetFormNames, registry));
+		new NativeFunction2<StaticFunctionTag, void, VMArray<TESForm*>, VMArray<BSFixedString>>("GetFormNames", "EA_Extender", PapyrusEAExtender::GetFormNames, registry));
 
 	registry->RegisterFunction(
-		new NativeFunction2<StaticFunctionTag, bool, TESForm*, VMArray<TESForm*>>("CheckFormForEnchantment", "EA_Extender", papyrusEAExtender::CheckFormForEnchantment, registry));
+		new NativeFunction2<StaticFunctionTag, bool, TESForm*, VMArray<TESForm*>>("CheckFormForEnchantment", "EA_Extender", PapyrusEAExtender::CheckFormForEnchantment, registry));
 	registry->RegisterFunction(
-		new NativeFunction3<StaticFunctionTag, void, VMArray<TESForm*>, UInt32, VMArray<BGSKeyword*>>("GetFormArrayNthKeywords", "EA_Extender", papyrusEAExtender::GetFormArrayNthKeywords, registry));
+		new NativeFunction3<StaticFunctionTag, void, VMArray<TESForm*>, UInt32, VMArray<BGSKeyword*>>("GetFormArrayNthKeywords", "EA_Extender", PapyrusEAExtender::GetFormArrayNthKeywords, registry));
 	registry->RegisterFunction(
-		new NativeFunction5<StaticFunctionTag, bool, TESObjectREFR*, VMArray<TESForm*>, VMArray<EnchantmentItem*>, bool, bool>("GetEnchantedForms", "EA_Extender", papyrusEAExtender::GetEnchantedForms, registry));
+		new NativeFunction5<StaticFunctionTag, bool, TESObjectREFR*, VMArray<TESForm*>, VMArray<EnchantmentItem*>, bool, bool>("GetEnchantedForms", "EA_Extender", PapyrusEAExtender::GetEnchantedForms, registry));
 
 	registry->RegisterFunction(
-		new NativeFunction3<StaticFunctionTag, void, TESForm*, UInt32, BGSKeyword*>("SetNthKeyword", "EA_Extender", papyrusEAExtender::SetNthKeyword, registry));
+		new NativeFunction3<StaticFunctionTag, void, TESForm*, UInt32, BGSKeyword*>("SetNthKeyword", "EA_Extender", PapyrusEAExtender::SetNthKeyword, registry));
 	registry->RegisterFunction(
-		new NativeFunction3<StaticFunctionTag, void, VMArray<TESForm*>, UInt32, BGSKeyword*>("SetFormArrayNthKeyword", "EA_Extender", papyrusEAExtender::SetFormArrayNthKeyword, registry));
+		new NativeFunction3<StaticFunctionTag, void, VMArray<TESForm*>, UInt32, BGSKeyword*>("SetFormArrayNthKeyword", "EA_Extender", PapyrusEAExtender::SetFormArrayNthKeyword, registry));
 	registry->RegisterFunction(
-		new NativeFunction3<StaticFunctionTag, void, VMArray<TESForm*>, UInt32, VMArray<BGSKeyword*>>("SetFormArrayNthKeywordArray", "EA_Extender", papyrusEAExtender::SetFormArrayNthKeywordArray, registry));
-
+		new NativeFunction3<StaticFunctionTag, void, VMArray<TESForm*>, UInt32, VMArray<BGSKeyword*>>("SetFormArrayNthKeywordArray", "EA_Extender", PapyrusEAExtender::SetFormArrayNthKeywordArray, registry));
+	registry->RegisterFunction(
+		new NativeFunction0<StaticFunctionTag, BSFixedString>("GetLearnEventName", "EA_Extender", PapyrusEAExtender::GetLearnEventName, registry));
+	
 
 	registry->SetFunctionFlags("EA_Extender", "GetSpellSkillNumber", VMClassRegistry::kFunctionFlag_NoWait);
 	registry->SetFunctionFlags("EA_Extender", "GetSpellSkillString", VMClassRegistry::kFunctionFlag_NoWait);
