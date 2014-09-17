@@ -3,10 +3,11 @@
 #include <shlobj.h>
 #include "Events.h"
 #include "Papyrus.h"
+#include "Serialization.h"
 
 
 IDebugLog					g_Log;
-const char*					kLogPath = "\\My Games\\Skyrim\\Logs\\EA_Extender.log";
+const char*					kLogPath = "\\My Games\\Skyrim\\Logs\\EnchantingAwakenedExtender.log";
 
 PluginHandle				g_pluginHandle = kPluginHandle_Invalid;
 
@@ -20,12 +21,39 @@ void InitialLoadSetup()
 {
 	_MESSAGE("Building Event Sinks...");
 	g_equipEventDispatcher->AddEventSink(&g_equipEventHandler);
+
+	//Retrieve the SKSE Mod Event dispatcher
+	void * dispatchPtr = g_messageInterface->GetEventDispatcher(SKSEMessagingInterface::kDispatcher_ModEvent);
+	g_skseModEventDispatcher = (EventDispatcher<SKSEModCallbackEvent>*)dispatchPtr;
+
+	//Register callbacks and unique ID for serialization
+	g_serialization->SetUniqueID(g_pluginHandle, 'EnAw');
+	g_serialization->SetRevertCallback(g_pluginHandle, EASerialization::Serialization_Revert);
+	g_serialization->SetSaveCallback(g_pluginHandle, EASerialization::Serialization_Save);
+	g_serialization->SetLoadCallback(g_pluginHandle, EASerialization::Serialization_Load);
+}
+
+void EnchantmentFrameworkMessageReceptor(SKSEMessagingInterface::Message* msg)
+{
+	if (msg->type == 'Itfc')
+	{
+		_MESSAGE("Recieved Interface from Enchantment Framework");
+		g_enchantmentFramework = reinterpret_cast<EnchantmentFrameworkInterface*>(msg->data);
+	}
 }
 
 void SKSEMessageReceptor(SKSEMessagingInterface::Message* msg)
 {
+	static bool active = true;
+	if (!active)
+		return;
+
+	//Register to recieve interface from Enchantment Framework
+	if (msg->type == SKSEMessagingInterface::kMessage_PostLoad)
+		active = g_messageInterface->RegisterListener(g_pluginHandle, "egocarib Enchantment Framework", EnchantmentFrameworkMessageReceptor);
+
 	//kMessage_InputLoaded only sent once, on initial Main Menu load
-	if (msg->type == SKSEMessagingInterface::kMessage_InputLoaded)
+	else if (msg->type == SKSEMessagingInterface::kMessage_InputLoaded)
 		InitialLoadSetup();
 }
 
@@ -36,11 +64,11 @@ extern "C"
 bool SKSEPlugin_Query(const SKSEInterface * skse, PluginInfo * info)
 {
 	g_Log.OpenRelative(CSIDL_MYDOCUMENTS, kLogPath);
-	_MESSAGE("EA_Extender (by egocarib)\n\nEnchanting Awakened Extender Loading...");
+	_MESSAGE("Enchanting Awakened Extender\nby egocarib\n\nEA Extender Loading...");
 
 	//Populate info structure
 	info->infoVersion	= PluginInfo::kInfoVersion;
-	info->name			= "EA Extender";
+	info->name			= "Enchanting Awakened Extender";
 	info->version		= 1;
 
 	//Store plugin handle so we can identify ourselves later
@@ -79,7 +107,7 @@ bool SKSEPlugin_Query(const SKSEInterface * skse, PluginInfo * info)
 
 bool SKSEPlugin_Load(const SKSEInterface * skse)
 {
-	_MESSAGE("Interfacing with Papyrus...");
+	_MESSAGE("Registering Papyrus Interface...");
 	g_papyrus->Register(RegisterPapyrusEAExtender);
 
 	//Register callback for SKSE messaging interface
