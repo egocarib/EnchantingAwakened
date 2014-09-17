@@ -2,11 +2,16 @@
 
 #include "[PluginLibrary]/SerializeForm.h"
 #include "skse/GameEvents.h"
+#include "skse/PapyrusEvents.h"
+#include "EnchantmentFrameworkAPI.h"
 
 class EnchantmentItem;
 class ActorMagicCaster;
 class TESObjectREFR;
 class Actor;
+
+extern	EnchantmentFrameworkInterface*			g_enchantmentFramework;
+extern	EventDispatcher<SKSEModCallbackEvent>*	g_skseModEventDispatcher;
 
 
 namespace Events
@@ -85,7 +90,6 @@ class TESEquipEventHandler : public BSTEventSink <TESEquipEvent>
 {
 private:
 
-	//MUST SERIALIZE THESE! they get removed on quit, probably on death too, need to make sure I save and load them appropriately.
 	struct EquippedWeaponEnchantments
 	{
 		UInt32	enchantment01;
@@ -105,17 +109,19 @@ private:
 public:
 	virtual	EventResult	ReceiveEvent(TESEquipEvent * evn, EventDispatcher<TESEquipEvent> * dispatcher);
 
+	void Reset() { playerEquippedWeaponEnchantments.Clear(); }
+
 	template <typename SerializeInterface_T>
 	void Serialize_EquippedEnchantments(SerializeInterface_T* const intfc)
 	{
-		SerialFormData enchantmentForm01(enchantment01);
-		SerialFormData enchantmentForm02(enchantment02);
+		SerialFormData enchantmentForm01(playerEquippedWeaponEnchantments.enchantment01);
+		SerialFormData enchantmentForm02(playerEquippedWeaponEnchantments.enchantment02);
 		intfc->WriteRecordData(&enchantmentForm01, sizeof(SerialFormData));
 		intfc->WriteRecordData(&enchantmentForm02, sizeof(SerialFormData));
 	}
 
 	template <typename SerializeInterface_T>
-	void Deserialize_EquippedEnchantments(SerializeInterface_T* const Intfc, UInt32* const sizeRead, UInt32* const sizeExpected)
+	void Deserialize_EquippedEnchantments(SerializeInterface_T* const intfc, UInt32* const sizeRead, UInt32* const sizeExpected)
 	{
 		(*sizeRead) = (*sizeExpected) = 0;
 

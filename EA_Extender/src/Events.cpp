@@ -4,10 +4,14 @@
 #include "skse/Utilities.h"
 #include "Types.h"
 #include "Events.h"
+#include "Learning.h"
 #include "ExtraEnchantmentInfo.h"
 #include <time.h>
 #include <map>
 
+
+EnchantmentFrameworkInterface*			g_enchantmentFramework = NULL;
+EventDispatcher<SKSEModCallbackEvent>*	g_skseModEventDispatcher = NULL;
 
 EventDispatcher<Events::TESEquipEvent>*	g_equipEventDispatcher = (EventDispatcher<Events::TESEquipEvent>*) 0x012E4EA0;
 Events::TESEquipEventHandler			g_equipEventHandler;
@@ -89,11 +93,9 @@ void TESEquipEventHandler::EquippedWeaponEnchantments::Push(UInt32 formID)
 	if (formID)
 	{
 		if (enchantment01 == 0)
-			{enchantment01 = formID;
-			_MESSAGE("enchantment01 == %08X", formID);}
+			enchantment01 = formID;
 		else if (enchantment02 == 0)
-			{enchantment02 = formID;
-			_MESSAGE("enchantment02 == %08X", formID);}
+			enchantment02 = formID;
 		else
 			_MESSAGE("Error: cannot record equipped player weapon enchantment, data retainer already full.");
 	}
@@ -102,11 +104,9 @@ void TESEquipEventHandler::EquippedWeaponEnchantments::Push(UInt32 formID)
 void TESEquipEventHandler::EquippedWeaponEnchantments::Pop(UInt32 formID)
 {
 	if (enchantment01 == formID)
-		{enchantment01 = 0;
-		_MESSAGE("enchantment01 == NULL");}
+		enchantment01 = 0;
 	else if (enchantment02 == formID)
-		{enchantment02 = 0;
-		_MESSAGE("enchantment02 == NULL");}
+		enchantment02 = 0;
 	else
 		_MESSAGE("Error: unequipped player weapon enchantment not found in data retainer.");
 }
@@ -144,40 +144,39 @@ EventResult TESEquipEventHandler::ReceiveEvent(TESEquipEvent * evn, EventDispatc
 EventResult TESHitEventHandler::ReceiveEvent(TESHitEvent * evn, EventDispatcher<TESHitEvent> * dispatcher)
 {
 	if (evn->caster->baseForm != (*g_thePlayer)->baseForm)
-		{_MESSAGE("evn aborted: NOT PLAYER"); return kEvent_Continue; }
-
-	//event - only advance timer if recorded enchant hit.
+		return kEvent_Continue; //Ignore non-player attackers
 
 	EnchantmentItem* enchantment = evn->GetMagicHitEnchantment();
 
-	if (!enchantment) //wasn't retrieved from event data (always worked in testing, but just in case)
+	if (!enchantment) //Wasn't retrieved from event data (always worked in testing, but just in case)
 		if (!(enchantment = ExtraEnchantmentInfo::GetActorSourceEnchantment(*g_thePlayer, evn->GetMagicHitSource())))
-			{_MESSAGE("evn aborted: can't get enchantment data"); return kEvent_Continue;}
+			return kEvent_Continue; //Can't retrieve enchantment info
 
+	if (enchantment->data.unk14 == 0x0C)
+		return kEvent_Continue; //Staff enchantment
 
-	//timer is used to ignore multiple hit events triggered by a single enchantment (and to add slight delay for learn framework)
+	//Timer is used to ignore multiple hit events triggered by a single enchantment (and to add slight delay for learn framework)
 	time_t thisTime = time(NULL);
-	if (difftime(thisTime, hitDelayMap[enchantment]) < 1.0) //could make this delay an ini setting. different weapons attack at different speeds.
-		{_MESSAGE("hit event from enchantment 0x%08X IGNORED, not enough time elapsed..", enchantment->formID); return kEvent_Continue;}
+	if (difftime(thisTime, hitDelayMap[enchantment]) < 1.0) //(could make this delay an ini setting?)
+		return kEvent_Continue; //Ignore multiple hit events from this enchantment
 	hitDelayMap[enchantment] = thisTime;
 
-
-	_MESSAGE("enchantment 0x%08X successfully processed in hit event", enchantment->formID);
-	if (enchantment->data.unk14 == 0x0C)
-		_MESSAGE("    ...but, it was a staff enchantment. FROWNY FACE FROWNY FACE");
-	//process enchantment hit, increment learning, etc.
-	//map of enchantments and # of times actor hit someone else? Power attacks worth slightly more?
-	//can either send event from here, or use an IsInCombat ability's OnEffectFinish() event in papyrus to
-	//poll the new values from papyrus (and clear out the array here? if so, would still need to serialize if saved mid-combat)
-
-	//........
-
-	_MESSAGE("    enchantment: 0x%08X  caster: 0x%08X  source: %s", (enchantment) ? enchantment->formID : NULL, evn->caster->formID, evn->GetMagicHitSource() ? "LEFT" : "RIGHT");
+	//Find base enchantment and advance learning
+	if (enchantment->formID >= 0xFF000000)
+	{
+		std::vector<EnchantmentItem*> baseEnchantments = g_enchantmentFramework->GetCraftedEnchantmentParents(enchantment);
+		for (UInt32 i = 0; i < baseEnchantments.size(); i++)
+			g_learnedExperienceMap.AdvanceLearning(baseEnchantments[i]);
+	}
+	else
+	{
+		if (enchantment->data.baseEnchantment)
+			enchantment = enchantment->data.baseEnchantment;
+		g_learnedExperienceMap.AdvanceLearning(enchantment);
+	}
 
 	return kEvent_Continue;
 }
-
-
 
 
 };
