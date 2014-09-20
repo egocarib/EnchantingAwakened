@@ -22,6 +22,7 @@
 obj/
 [Bb]in/
 [Dd]ebug*/
+dev notes/
 [Rr]elease*/
 [Dd]epricated*/
 IntermediateBuild/
