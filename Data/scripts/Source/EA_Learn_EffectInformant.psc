@@ -1,5 +1,20 @@
 Scriptname EA_Learn_EffectInformant extends ActiveMagicEffect
 
+
+
+
+
+
+;;
+;;              NOW DEPRICATED       -      (using internal plugin to detect enchantment equip events instead of attaching this to all MGEFs)
+;;
+
+
+
+
+
+
+
 ;There was a time when I considered enabling this for all actors... but really not worth the headache.
 
 Form thisHereThing
