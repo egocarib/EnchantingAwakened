@@ -38,5 +38,47 @@ string Function GetSpellSkillString(Spell checkSpell) global native
 ;returns 0-4, corresponding alphabetically to Alteration-Restoration, or -1 if invalid or no type
 int Function GetSpellSkillNumber(Spell checkSpell) global native
 
-;debug
-Function DumpEnchantedWeaponValues() global native
+;adds each magic effect from ench into outputMGEFs array, and returns the number that were added
+int Function GetEnchantmentMagicEffects(Enchantment ench, MagicEffect[] outputMGEFs) global native
+
+;NOT CURRENTLY USED
+; int Function GetPlayerKnownEnchantments(Enchantment[] outputKnown) global native
+
+;returns event name string that must be registered for (via RegisterForModEvent) in order to receive learn events from internal plugin
+string Function GetLearnEventName() global native
+;format looks something like this:
+;   RegisterForModEvent(EA_Extender.GetLearnEventName(), "OnLearnAdvance")
+;   ...
+;   Event OnLearnAdvance(string eventName, string nullArg, float newExperienceTotal, Form learnedEnchantment)
+;
+;   this event will be sent from internal plugin roughly every 50 weapon enchantment hits (and thus, newExperienceTotal will be a multiple of 50)
+
+;same as above but returns event name for the armor enchantment equip/unequip event
+string Function GetArmorEnchantmentEquipEventName() global native
+
+
+;adds to formlist all loaded enchantments that have any member of baseEnchantments as their base enchantment.
+;will just add new things to the formlist, so empty/revert formlist before calling if necessary.
+Function FillFormlistWithChildrenOfBaseEnchantments(Formlist listToFill, Enchantment[] baseEnchantments, bool stopAtFirstNullEntry = true) global native
+
+;as above, but input from a formlist of base enchantments instead
+Function FillFormlistWithChildrenOfBaseEnchantmentsList(Formlist listToFill, Formlist baseEnchantments) global native
+
+;modifies entry point at epIndex for each perksToModify, replacing current value with corresponding newValues
+Function SetPerkEntryValues(Perk[] perksToModify, float[] newValues, int epIndex = 0) global native
+
+;sets the internal constant for offensive enchant learning (each hit with enchanted weapon will be worth this much "experience"
+Function SetOffensiveEnchantmentLearnExperienceMult(float newMultiplier) global native
+
+;set the learn thresholds. Each time a new threshold is met by offensive enchantment use, a new learn event will be sent
+;from internal plugin for that enchantment. Ignores 0 value threshold(s), which are not recorded and won't trigger a learn event.
+Function SetOffensiveEnchantmentLearnLevelThresholds(float[] thresholds) global native
+
+; Function DumpSpellsAndEffects() global native
+
+Function ApplyIniMultModifiers(float[] multsToModify) global native
+	
+Function GetIniPerkPowerVals(float[] perkBasePower, float[] perkMaxLearnPower) global native
+
+;dump papyrus learning data. Pass armor enchant arrays and weapon enchant arrays to this function. Will output to EnchantingAwakenedExtender.log
+Function DumpLearningData(Enchantment[] aEnchants, float[] aEnchantsXP, int[] aEnchantsLvl, Enchantment[] wEnchants, float[] wEnchantsXP, int[] wEnchantsLvl) global native
