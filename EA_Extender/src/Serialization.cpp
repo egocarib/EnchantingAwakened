@@ -1,6 +1,7 @@
 #include "Serialization.h"
 #include "skse/PluginAPI.h"
 #include "[PluginLibrary]/SerializeForm.h"
+#include "ExtraEnchantmentInfo.h"
 #include "Events.h"
 #include "Learning.h"
 
@@ -17,10 +18,14 @@ namespace EASerialization
 	{
 		_MESSAGE("Saving...");
 
-		if (intfc->OpenRecord('EQUI', kSerializationDataVersion))
+		if (intfc->OpenRecord('WEAP', kSerializationDataVersion)) //Equip Info
 			g_equipEventHandler.Serialize_EquippedEnchantments(intfc);
-		if (intfc->OpenRecord('LEAR', kSerializationDataVersion))
+		if (intfc->OpenRecord('ARMO', kSerializationDataVersion)) //Equip Info
+			g_activeEnchantEffects.Serialize(intfc);
+		if (intfc->OpenRecord('LEAR', kSerializationDataVersion)) //Learn Info
 			g_learnedExperienceMap.Serialize(intfc);
+		if (intfc->OpenRecord('CNST', kSerializationDataVersion)) //Learn Constants
+			Learning::SerializeConstants(intfc);
 	}
 
 	void Serialization_Load(SKSESerializationInterface* intfc)
@@ -37,15 +42,19 @@ namespace EASerialization
 		{
 			if (version == kSerializationDataVersion)
 			{
-				if (type == 'EQUI' || type == 'LEAR')
+				if (type == 'WEAP' || type == 'ARMO' || type == 'LEAR' || type == 'CNST')
 				{
 					UInt32 sizeRead;
 					UInt32 sizeExpected;
 					
-					if (type == 'EQUI')
+					if (type == 'WEAP')
 						g_equipEventHandler.Deserialize_EquippedEnchantments(intfc, &sizeRead, &sizeExpected);
-					else //type == 'LEAR'
+					else if (type == 'ARMO')
+						g_activeEnchantEffects.Deserialize(intfc, &sizeRead, &sizeExpected);
+					else if (type == 'LEAR')
 						g_learnedExperienceMap.Deserialize(intfc, &sizeRead, &sizeExpected);
+					else //(type == 'CNST')
+						Learning::DeserializeConstants(intfc, &sizeRead, &sizeExpected);
 
 					length -= sizeRead;
 

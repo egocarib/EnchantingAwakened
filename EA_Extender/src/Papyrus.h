@@ -33,11 +33,28 @@ namespace PapyrusEAExtender
 
 	UInt32 GetSpellSkillNumber(StaticFunctionTag* base, SpellItem* spell);
 
+	UInt32 GetMagicItemMagicEffects(StaticFunctionTag* base, VMArray<EffectSetting*>);
+
 	//Returns number of normal (not player-created) known enchantments, and inserts them all into outputKnown array.
 	//Returns -1 if no enchantments are known by the player.
-	UInt32 GetPlayerKnownEnchantments(StaticFunctionTag* base, VMArray<EnchantmentItem*> outputKnown);
+	// UInt32 GetPlayerKnownEnchantments(StaticFunctionTag* base, VMArray<EnchantmentItem*> outputKnown);
 
 	BSFixedString GetLearnEventName(StaticFunctionTag* base);
+
+	//adds to formlist all loaded enchantments that have any member of baseEnchantments as their base enchantment.
+	void FillFormlistWithChildrenOfBaseEnchantments(StaticFunctionTag* base, BGSListForm* formlist, VMArray<EnchantmentItem*> baseEnchantments, bool terminateWhenNull);
+
+	//same thing but input a list instead of an array
+	void FillFormlistWithChildrenOfBaseEnchantmentsList(StaticFunctionTag* base, BGSListForm* formlist, BGSListForm* inputForms);
+
+	//modify the entry point numeric value for EP at epIndex for each of perks, replacing with newVals
+	void SetPerkEntryValues(StaticFunctionTag* base, VMArray<BGSPerk*> perks, VMArray<float> newVals, UInt32 epIndex);
+
+	//set the internal constant for offensive enchant learning (each hit with enchanted weapon will be worth this much "experience"
+	void SetOffensiveEnchantmentLearnExperienceMult(StaticFunctionTag* base, float newMultiplier);
+
+	//set the learn thresholds. Each time a new threshold is met by offensive enchantment use, a new learn event will be sent from internal plugin for that enchantment.
+	void SetOffensiveEnchantmentLearnLevelThresholds(StaticFunctionTag* base, VMArray<float> thresholds);
 }
 
 bool RegisterPapyrusEAExtender(VMClassRegistry* registry);

@@ -6,6 +6,7 @@
 #include "Events.h"
 #include "Learning.h"
 #include "ExtraEnchantmentInfo.h"
+#include "EnchantingAwakenedData.h"
 #include <time.h>
 #include <map>
 
@@ -77,7 +78,13 @@ EnchantmentItem* TESHitEvent::GetMagicHitEnchantment()
 	if (!enchantment)
 		if (src->formType == TESObjectWEAP::kTypeID)
 			if (ActorMagicCaster* magicHitData = GetMagicHitData())
+			{
 				enchantment = DYNAMIC_CAST(magicHitData->magicItem, MagicItem, EnchantmentItem);
+				if (!enchantment)
+					enchantment = ExtraEnchantmentInfo::GetActorSourceEnchantment(*g_thePlayer, GetMagicHitSource());
+					//This last part may not be necessary. In testing, as long as there was ActorMagicCaster data, I was
+					//always able to retrieve the enchantment without checking actor's source equipData. Added just in case.
+			}
 
 	return enchantment;
 }
@@ -107,8 +114,8 @@ void TESEquipEventHandler::EquippedWeaponEnchantments::Pop(UInt32 formID)
 		enchantment01 = 0;
 	else if (enchantment02 == formID)
 		enchantment02 = 0;
-	else
-		_MESSAGE("Error: unequipped player weapon enchantment not found in data retainer.");
+	// else //[this was showing up if player had enchanted items equipped before installing. Not really necessary anyway, tested this pretty thoroughly.]
+	// 	_MESSAGE("Error: unequipped player weapon enchantment not found in data retainer.");
 }
 
 void TESEquipEventHandler::EquippedWeaponEnchantments::Clear()
@@ -118,42 +125,53 @@ void TESEquipEventHandler::EquippedWeaponEnchantments::Clear()
 }
 
 
-EventResult TESEquipEventHandler::ReceiveEvent(TESEquipEvent * evn, EventDispatcher<TESEquipEvent> * dispatcher)
+EventResult TESEquipEventHandler::ReceiveEvent(TESEquipEvent* evn, EventDispatcher<TESEquipEvent>* dispatcher)
 {
 	if (evn->actor->baseForm != (*g_thePlayer)->baseForm)
 		return kEvent_Continue;
 
 	TESForm* equippedForm = LookupFormByID(evn->equippedFormID);
+
 	EnchantmentItem* enchantment = DYNAMIC_CAST(equippedForm, TESForm, EnchantmentItem);
-	if (!enchantment || enchantment->data.unk14 == 0x0C) //ignore staff enchantments, for now (may add later)
-		return kEvent_Continue;
 
-	if (evn->isEquipping)
-		playerEquippedWeaponEnchantments.Push(evn->equippedFormID);
-	else
-		playerEquippedWeaponEnchantments.Pop(evn->equippedFormID);
+	if (!enchantment) //check active effects to see if an armor enchantment was equipped
+	{
+		if (evn->isEquipping)
+			g_activeEnchantEffects.ProcessEquipped(); //find new equipped enchanted item and send event to papyrus
+		else //unequipping
+			g_activeEnchantEffects.ProcessUnequipped(); //find removed enchanted item and send event to papyrus
+	}
 
-	g_hitEventExDispatcher->RemoveEventSink(&g_hitEventExHandler);
-	if (playerEquippedWeaponEnchantments.HasData())
-		g_hitEventExDispatcher->AddEventSink(&g_hitEventExHandler);
+	else if (enchantment->data.unk14 != 0x0C) //weapon enchantment equipped (but ignore staff enchantments for now)
+	{
+		if (evn->isEquipping)
+			playerEquippedWeaponEnchantments.Push(evn->equippedFormID);
+		else
+			playerEquippedWeaponEnchantments.Pop(evn->equippedFormID);
+
+		g_userExclusions.UpdateWeaponExclusions();
+
+		g_hitEventExDispatcher->RemoveEventSink(&g_hitEventExHandler);
+		if (playerEquippedWeaponEnchantments.HasData())
+			g_hitEventExDispatcher->AddEventSink(&g_hitEventExHandler);
+	}
 
 	return kEvent_Continue;
 }
 
 
-EventResult TESHitEventHandler::ReceiveEvent(TESHitEvent * evn, EventDispatcher<TESHitEvent> * dispatcher)
+EventResult TESHitEventHandler::ReceiveEvent(TESHitEvent* evn, EventDispatcher<TESHitEvent>* dispatcher)
 {
 	if (evn->caster->baseForm != (*g_thePlayer)->baseForm)
 		return kEvent_Continue; //Ignore non-player attackers
 
 	EnchantmentItem* enchantment = evn->GetMagicHitEnchantment();
 
-	if (!enchantment) //Wasn't retrieved from event data (always worked in testing, but just in case)
-		if (!(enchantment = ExtraEnchantmentInfo::GetActorSourceEnchantment(*g_thePlayer, evn->GetMagicHitSource())))
-			return kEvent_Continue; //Can't retrieve enchantment info
+	if (!enchantment) //Can't retrieve enchantment info
+		return kEvent_Continue;
 
-	if (enchantment->data.unk14 == 0x0C)
-		return kEvent_Continue; //Staff enchantment
+	if (enchantment->data.unk14 == 0x0C) //Staff enchantment
+		return kEvent_Continue;
 
 	//Timer is used to ignore multiple hit events triggered by a single enchantment (and to add slight delay for learn framework)
 	time_t thisTime = time(NULL);
@@ -170,6 +188,8 @@ EventResult TESHitEventHandler::ReceiveEvent(TESHitEvent * evn, EventDispatcher<
 	}
 	else
 	{
+		if (g_userExclusions.ShouldExcludeHitEventSource(evn))
+			return kEvent_Continue;
 		if (enchantment->data.baseEnchantment)
 			enchantment = enchantment->data.baseEnchantment;
 		g_learnedExperienceMap.AdvanceLearning(enchantment);

@@ -4,6 +4,7 @@
 #include "skse/GameRTTI.h"
 #include <string>
 #include <map>
+#include <set>
 
 class TESForm;
 class EnchantmentItem;
@@ -11,11 +12,54 @@ class EnchantmentItem;
 
 namespace Learning
 {
+typedef	std::set<float>		FloatSetT;
+
+extern	float				kLearnExperienceMultiplier;
+extern	FloatSetT			LearnLevelThresholds;
+
+template <typename SerializeInterface_T>
+void SerializeConstants(SerializeInterface_T* const intfc)
+{	
+	intfc->WriteRecordData(&Learning::kLearnExperienceMultiplier, sizeof(float));
+
+	UInt32 setSize = LearnLevelThresholds.size();
+	intfc->WriteRecordData(&setSize, sizeof(UInt32));
+	for (FloatSetT::iterator it = LearnLevelThresholds.begin(); it != LearnLevelThresholds.end(); it++)
+		intfc->WriteRecordData(&(*it), sizeof(float));
+}
+
+template <typename SerializeInterface_T>
+void DeserializeConstants(SerializeInterface_T* const intfc, UInt32* const sizeRead, UInt32* const sizeExpected)
+{
+	(*sizeRead) = (*sizeExpected) = 0;
+
+	(*sizeRead) += intfc->ReadRecordData(&Learning::kLearnExperienceMultiplier, sizeof(float));
+	(*sizeExpected) += sizeof(float);
+
+	UInt32 setSize;
+	(*sizeRead) += intfc->ReadRecordData(&setSize, sizeof(UInt32));
+	(*sizeExpected) += sizeof(UInt32);
+	if (*sizeRead != *sizeExpected)
+		return;
+
+	for (UInt32 i = 0; i < setSize; i++)
+	{
+		float thisThreshold;
+		(*sizeRead) += intfc->ReadRecordData(&thisThreshold, sizeof(float));
+		(*sizeExpected) += sizeof(float);
+		if (*sizeRead != *sizeExpected)
+			return;
+		LearnLevelThresholds.insert(thisThreshold);
+	}
+}
+
+
+
 
 class EnchantmentExperienceMap
 {
 private:
-	typedef std::map<EnchantmentItem*, UInt32> LearnMapT;
+	typedef std::map<EnchantmentItem*, float> LearnMapT;
 	LearnMapT	tracker;
 
 public:
@@ -34,7 +78,7 @@ public:
 		{
 			SerialFormData trackedEnchantment(it->first);
 			intfc->WriteRecordData(&trackedEnchantment, sizeof(SerialFormData));
-			intfc->WriteRecordData(&it->second, sizeof(UInt32));
+			intfc->WriteRecordData(&it->second, sizeof(float));
 		}
 	}
 
@@ -53,11 +97,11 @@ public:
 		for (UInt32 i = 0; i < numberTracked; i++)
 		{
 			SerialFormData	thisFormData;
-			UInt32			thisExperience;
+			float			thisExperience;
 
 			(*sizeRead) += intfc->ReadRecordData(&thisFormData, sizeof(SerialFormData));
-			(*sizeRead) += intfc->ReadRecordData(&thisExperience, sizeof(UInt32));
-			(*sizeExpected) += sizeof(SerialFormData) + sizeof(UInt32);
+			(*sizeRead) += intfc->ReadRecordData(&thisExperience, sizeof(float));
+			(*sizeExpected) += sizeof(SerialFormData) + sizeof(float);
 			if (*sizeRead != *sizeExpected)
 				return;
 

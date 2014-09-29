@@ -1,13 +1,19 @@
 #include "skse/skse_version.h"
 #include "skse/PluginAPI.h"
+#include "skse/GameData.h"
 #include <shlobj.h>
+#include "Ini.h"
 #include "Events.h"
 #include "Papyrus.h"
+#include "Patches.h"
 #include "Serialization.h"
+#include "ExtraEnchantmentInfo.h"
+#include "EnchantingAwakenedData.h"
 
 
 IDebugLog					g_Log;
 const char*					kLogPath = "\\My Games\\Skyrim\\Logs\\EnchantingAwakenedExtender.log";
+const char*					kINIPath = "\\My Games\\Skyrim\\EnchantingAwakened.ini";
 
 PluginHandle				g_pluginHandle = kPluginHandle_Invalid;
 
@@ -17,21 +23,79 @@ SKSEMessagingInterface*		g_messageInterface = NULL;
 
 
 
-void InitialLoadSetup()
+
+void PostLoadSetup()
 {
+	DataHandler* dh = DataHandler::GetSingleton();
+	g_DragonbornUpperByteIndex = dh->GetModIndex("Dragonborn.esm");
+	g_DragonbornUpperByteIndex = (g_DragonbornUpperByteIndex < 0xFF) ? g_DragonbornUpperByteIndex << 24 : 0xFFFFFFFF;
+
 	_MESSAGE("Building Event Sinks...");
 	g_equipEventDispatcher->AddEventSink(&g_equipEventHandler);
 
+	EAPatches::ApplyFormPatches();
+
+	EAData::InitializeFormlists();
+	EAData::SetPerkMultipliers();
+	EAData::RecordCustomExclusions();
+}
+
+
+bool VerifyEnchantingAwakened()
+{
+	static bool initialLoad = true;
+
+	if (initialLoad)
+	{
+		initialLoad = false;
+
+		//Get mod index
+		DataHandler* dh = DataHandler::GetSingleton();
+		g_EnchantingAwakenedUpperByteIndex = (dh) ? dh->GetModIndex("EnchantingAwakened.esp") : 0xFF;
+		g_EnchantingAwakenedUpperByteIndex <<= 24;
+
+		if (g_EnchantingAwakenedUpperByteIndex < (0xFF << 24)) //Success; complete remaining setup
+		{
+			PostLoadSetup();
+		}
+		else
+		{
+			_MESSAGE("ERROR: EnchantingAwakened.esp is not active in your load order.\nTerminating plugin...");
+		}
+	}
+
+	return (g_EnchantingAwakenedUpperByteIndex < (0xFF << 24));
+}
+
+void EALoadRelay(SKSESerializationInterface* intfc)
+{
+	if (VerifyEnchantingAwakened())
+		EASerialization::Serialization_Load(intfc);
+}
+void EASaveRelay(SKSESerializationInterface* intfc)
+{
+	if (VerifyEnchantingAwakened())
+		EASerialization::Serialization_Save(intfc);
+}
+void EARevertRelay(SKSESerializationInterface* intfc)
+{
+	if (VerifyEnchantingAwakened())
+		EASerialization::Serialization_Revert(intfc);
+}
+
+void PreLoadSetup()
+{
 	//Retrieve the SKSE Mod Event dispatcher
 	void * dispatchPtr = g_messageInterface->GetEventDispatcher(SKSEMessagingInterface::kDispatcher_ModEvent);
 	g_skseModEventDispatcher = (EventDispatcher<SKSEModCallbackEvent>*)dispatchPtr;
 
 	//Register callbacks and unique ID for serialization
 	g_serialization->SetUniqueID(g_pluginHandle, 'EnAw');
-	g_serialization->SetRevertCallback(g_pluginHandle, EASerialization::Serialization_Revert);
-	g_serialization->SetSaveCallback(g_pluginHandle, EASerialization::Serialization_Save);
-	g_serialization->SetLoadCallback(g_pluginHandle, EASerialization::Serialization_Load);
+	g_serialization->SetRevertCallback(g_pluginHandle, EARevertRelay);
+	g_serialization->SetSaveCallback(g_pluginHandle, EASaveRelay);
+	g_serialization->SetLoadCallback(g_pluginHandle, EALoadRelay);
 }
+
 
 void EnchantmentFrameworkMessageReceptor(SKSEMessagingInterface::Message* msg)
 {
@@ -48,13 +112,17 @@ void SKSEMessageReceptor(SKSEMessagingInterface::Message* msg)
 	if (!active)
 		return;
 
+	if (msg->type == SKSEMessagingInterface::kMessage_PostLoadGame)
+		if (g_activeEnchantEffects.IsEmpty()) //Detect active enchantments during initial plugin load
+			g_activeEnchantEffects.ProcessEquipped(true);
+
 	//Register to recieve interface from Enchantment Framework
 	if (msg->type == SKSEMessagingInterface::kMessage_PostLoad)
 		active = g_messageInterface->RegisterListener(g_pluginHandle, "egocarib Enchantment Framework", EnchantmentFrameworkMessageReceptor);
 
 	//kMessage_InputLoaded only sent once, on initial Main Menu load
 	else if (msg->type == SKSEMessagingInterface::kMessage_InputLoaded)
-		InitialLoadSetup();
+		PreLoadSetup();
 }
 
 
@@ -109,6 +177,13 @@ bool SKSEPlugin_Load(const SKSEInterface * skse)
 {
 	_MESSAGE("Registering Papyrus Interface...");
 	g_papyrus->Register(RegisterPapyrusEAExtender);
+
+	_MESSAGE("Initializing INI Manager...");
+	char path[MAX_PATH];
+	ASSERT(SUCCEEDED(SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, path)));
+	std::string	INIPath = path;
+	INIPath += kINIPath;
+	EnchantingAwakenedINIManager::Instance.Initialize(INIPath.c_str(), NULL);
 
 	//Register callback for SKSE messaging interface
 	g_messageInterface->RegisterListener(g_pluginHandle, "SKSE", SKSEMessageReceptor);

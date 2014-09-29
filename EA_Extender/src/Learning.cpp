@@ -1,4 +1,5 @@
 #include "Learning.h"
+#include "EnchantingAwakenedData.h"
 #include "Events.h"
 
 Learning::EnchantmentExperienceMap		g_learnedExperienceMap;
@@ -8,8 +9,14 @@ const std::string 						LEARN_EVENT_NAME("EA_AddLearningExperienceEvent");
 
 namespace Learning
 {
+	float				kLearnExperienceMultiplier = 1.0;
+	FloatSetT			LearnLevelThresholds;
+
 	void SendLearnEvent(EnchantmentItem* e, UInt32 learnTotal)
 	{
+		if (g_userExclusions.IsExcluded(e))
+			return;
+		
 		BSFixedString learnEventName(LEARN_EVENT_NAME.c_str());
 
 		SKSEModCallbackEvent evn(learnEventName, "", learnTotal, e);
@@ -18,9 +25,17 @@ namespace Learning
 
 	void EnchantmentExperienceMap::AdvanceLearning(EnchantmentItem* e)
 	{
-		tracker[e]++;
-		if (tracker[e] % 50 == 0)
-			SendLearnEvent(e, tracker[e]);
+		FloatSetT::iterator preIt	 = LearnLevelThresholds.lower_bound(tracker[e]);
+		tracker[e]					+= kLearnExperienceMultiplier;
+		FloatSetT::iterator postIt	 = LearnLevelThresholds.lower_bound(tracker[e]);
+
+		if (preIt != postIt) //Experience level increase
+		{
+			if (preIt != LearnLevelThresholds.end())
+				SendLearnEvent(e, *preIt); //return threshold just passed
+			else
+				_MESSAGE("Error: cannot dereference pointer to learn threshold passed [size: %u curXP: %g]", LearnLevelThresholds.size(), tracker[e]);
+		}
 	}
 }
 

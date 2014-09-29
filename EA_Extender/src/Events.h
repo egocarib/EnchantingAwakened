@@ -16,7 +16,7 @@ extern	EventDispatcher<SKSEModCallbackEvent>*	g_skseModEventDispatcher;
 
 namespace Events
 {
-
+	
 struct TESEquipEvent
 {
 	Actor*		actor;			// 00
@@ -163,6 +163,7 @@ class TESHitEventHandler : public BSTEventSink <TESHitEvent>
 {
 private:
 	std::map<EnchantmentItem*, time_t> hitDelayMap;
+
 public:
 	virtual	EventResult ReceiveEvent(TESHitEvent * evn, EventDispatcher<TESHitEvent> * dispatcher);
 };

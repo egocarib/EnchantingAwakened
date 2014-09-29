@@ -3,10 +3,16 @@
 #include "skse/GameExtraData.h"
 #include "skse/GameData.h"
 #include "skse/GameRTTI.h"
+#include "skse/PapyrusPerk.h"
+#include <map>
 #include <vector>
 
+#include "Ini.h"
 #include "Papyrus.h"
+#include "Events.h"
 #include "Learning.h"
+#include "DataHandler.h"
+#include "ExtraEnchantmentInfo.h"
 
 
 //For unpacking VMArray of various form types
@@ -392,45 +398,224 @@ namespace PapyrusEAExtender
 		return 0xFFFFFFFF;
 	}
 
+
+	UInt32 GetEnchantmentMagicEffects(StaticFunctionTag* base, EnchantmentItem* enchantment, VMArray<EffectSetting*> outputMGEFs)
+	{
+		MagicItem* mi = DYNAMIC_CAST(enchantment, EnchantmentItem, MagicItem);
+		if (mi)
+		{
+			UInt32 max = (mi->effectItemList.count < outputMGEFs.Length()) ? mi->effectItemList.count : outputMGEFs.Length();
+			for (UInt32 n = 0; n < max; n++)
+			{
+				MagicItem::EffectItem* ei = NULL;
+				mi->effectItemList.GetNthItem(n, ei);
+				outputMGEFs.Set(&ei->mgef, n);
+			}
+			return max;
+		}
+		return 0;
+	}
+
+
 	//Returns number of normal (not player-created) known enchantments, and inserts them all into outputKnown array.
 	//Returns -1 if no enchantments are known by the player.
-	UInt32 GetPlayerKnownEnchantments(StaticFunctionTag* base, VMArray<EnchantmentItem*> outputKnown)
-	{
-		DataHandler* dh = DataHandler::GetSingleton();
-		std::vector<EnchantmentItem*> knownEnchants;
-		knownEnchants.clear();
+	// UInt32 GetPlayerKnownEnchantments(StaticFunctionTag* base, VMArray<EnchantmentItem*> outputKnown)
+	// {
+	// 	DataHandler* dh = DataHandler::GetSingleton();
+	// 	std::vector<EnchantmentItem*> knownEnchants;
+	// 	knownEnchants.clear();
 
-		for(UInt32 i = 0; i < dh->enchantments.count; i++)
-		{
-			EnchantmentItem* ench = NULL;
-			dh->enchantments.GetNthItem(i, ench);
-			if (ench && (ench->flags & TESForm::kFlagPlayerKnows))
-				knownEnchants.push_back(ench); //player knows
-		}
+	// 	for(UInt32 i = 0; i < dh->enchantments.count; i++)
+	// 	{
+	// 		EnchantmentItem* ench = NULL;
+	// 		dh->enchantments.GetNthItem(i, ench);
+	// 		if (ench && (ench->flags & TESForm::kFlagPlayerKnows))
+	// 			knownEnchants.push_back(ench); //player knows
+	// 	}
 
-		UInt32 knownSize = knownEnchants.size();
-		if (outputKnown.Length() < knownSize)
-		{
-			_MESSAGE("Error: GetPlayerKnownEnchantments Overflow: Known(%u), OutputCapacity(%u)", knownSize, outputKnown.Length());
-			knownSize = outputKnown.Length();
-		}
+	// 	UInt32 knownSize = knownEnchants.size();
+	// 	if (outputKnown.Length() < knownSize)
+	// 	{
+	// 		_MESSAGE("Error: GetPlayerKnownEnchantments Overflow: Known(%u), OutputCapacity(%u)", knownSize, outputKnown.Length());
+	// 		knownSize = outputKnown.Length();
+	// 	}
 
-		for (UInt32 i = 0; i < knownSize; i++)
-			outputKnown.Set(&knownEnchants[i], i);
+	// 	for (UInt32 i = 0; i < knownSize; i++)
+	// 		outputKnown.Set(&knownEnchants[i], i);
 
-		return knownSize;
-	}
+	// 	return knownSize;
+	// }
 
 
 	BSFixedString GetLearnEventName(StaticFunctionTag* base)
 	{
 		return BSFixedString(LEARN_EVENT_NAME.c_str());
 	}
+
+	void FillFormlistWithChildrenOfBaseEnchantments(StaticFunctionTag* base, BGSListForm* formlist, VMArray<EnchantmentItem*> baseEnchantments, bool terminateWhenNull)
+	{
+		BaseEnchantmentUseResearcher* research = BaseEnchantmentUseResearcher::GetSingleton();
+
+		for (UInt32 i = 0; i < baseEnchantments.Length(); i++)
+		{
+			EnchantmentItem* thisBase = NULL;
+			baseEnchantments.Get(&thisBase, i);
+			if (!thisBase && terminateWhenNull)
+				return;
+			research->AddChildrenToList(thisBase, formlist);
+		}
+	}
+
+	void FillFormlistWithChildrenOfBaseEnchantmentsList(StaticFunctionTag* base, BGSListForm* formlist, BGSListForm* baseEnchantments)
+	{
+		DerivedEnchantmentListProcessor children(formlist);
+		baseEnchantments->Visit(children);
+	}
+
+	void SetPerkEntryValues(StaticFunctionTag* base, VMArray<BGSPerk*> perks, VMArray<float> newVals, UInt32 epIndex)
+	{
+		UInt32 maxIndex = (perks.Length() > newVals.Length()) ? newVals.Length() : perks.Length();
+
+		for (UInt32 i = 0; i < maxIndex; i++)
+		{
+			BGSPerk* thisPerk = NULL;
+			perks.Get(&thisPerk, i);
+			float thisValue = 0.0;
+			newVals.Get(&thisValue, i);
+			papyrusPerk::SetNthEntryValue(thisPerk, epIndex, 0, thisValue);
+		}
+		// papyrusPerk::SetNthEntryValue(BGSPerk * perk, UInt32 n, UInt32 i, float value);
+	}
+
+	void GetIniPerkPowerVals(StaticFunctionTag* base, VMArray<float> basePowers, VMArray<float> learnPowers)
+	{
+		if (basePowers.Length() < 12 || learnPowers.Length() < 12)
+			return;
+
+		EnchantingAwakenedINIManager::Instance.GetIniPerkPowerVals(basePowers, learnPowers);
+	}
+
+	void SetOffensiveEnchantmentLearnExperienceMult(StaticFunctionTag* base, float newMultiplier)
+	{
+		Learning::kLearnExperienceMultiplier = newMultiplier;
+	}
+
+	void SetOffensiveEnchantmentLearnLevelThresholds(StaticFunctionTag* base, VMArray<float> thresholds)
+	{
+		for (UInt32 i = 0; i < thresholds.Length(); i++)
+		{
+			float thisValue;
+			thresholds.Get(&thisValue, i);
+			if (thisValue >= 1.0) //skip 0
+				Learning::LearnLevelThresholds.insert(thisValue);
+		}
+	}
+
+	BSFixedString GetArmorEnchantmentEquipEventName(StaticFunctionTag* base)
+	{
+		return BSFixedString(EQUIP_ENCHANTMENT_EVENT_NAME.c_str());
+	}
+
+
+
+
+	// void DumpSpellsAndEffects(StaticFunctionTag* base)
+	// {
+	// 	Actor* pActor = (*g_thePlayer);
+
+	// 	_MESSAGE("\n\nActor Spells:");
+	// 	for(int i = 0; i < pActor->addedSpells.Length(); i++)
+	// 	{
+	// 		SpellItem* s = pActor->addedSpells.Get(i);
+	// 		_MESSAGE("    %u  -  0x%08X  [%s]", i, s->formID, (DYNAMIC_CAST(s, SpellItem, TESFullName))->name.data);
+	// 	}
+
+	// 	tList<ActiveEffect> * effects = pActor->magicTarget.GetActiveEffects();
+	// 	if(effects)
+	// 	{
+	// 		_MESSAGE("\n\nActor ActiveEffects:");
+	// 		for(int i = 0; i < effects->Count(); i++)
+	// 		{
+	// 			ActiveEffect * pEffect = effects->GetNthItem(i);
+	// 			_MESSAGE("  ITEM %u", i);
+	// 			EnchantmentItem* ei = DYNAMIC_CAST(pEffect->item, MagicItem, EnchantmentItem);
+	// 			SpellItem* si = DYNAMIC_CAST(pEffect->item, MagicItem, SpellItem);
+	// 			_MESSAGE("    enchantment: %08X [%s]", (ei) ? ei->formID : 0, (ei) ? (DYNAMIC_CAST(ei, EnchantmentItem, TESFullName))->name.data : "NONE");
+	// 			_MESSAGE("    spell:       %08X [%s]", (si) ? si->formID : 0, (si) ? (DYNAMIC_CAST(si, SpellItem, TESFullName))->name.data : "NONE");
+	// 			ei = DYNAMIC_CAST(pEffect->sourceItem, TESForm, EnchantmentItem);
+	// 			si = DYNAMIC_CAST(pEffect->sourceItem, TESForm, SpellItem);
+	// 			_MESSAGE("    source     : %08X [%s]", (pEffect->sourceItem) ? pEffect->sourceItem->formID : 0, (pEffect->sourceItem) ? (DYNAMIC_CAST(pEffect->sourceItem, TESForm, TESFullName))->name.data : "NONE");
+	// 			_MESSAGE("    effectItem mgef:    %08X [%s]", (pEffect->effect->mgef) ? pEffect->effect->mgef->formID : 0, (pEffect->effect->mgef) ? (DYNAMIC_CAST(pEffect->effect->mgef, EffectSetting, TESFullName))->name.data : "NONE");
+	// 			_MESSAGE("    data  -  elapsed: %g duration: %g magnitude: %g inactive: %s", pEffect->elapsed, pEffect->duration, pEffect->magnitude,
+	// 			 				((pEffect->flags & ActiveEffect::kFlag_Inactive) == ActiveEffect::kFlag_Inactive) ? "TRUE" : "FALSE");
+
+	// 		}
+	// 	}
+	// }
+
+	void ApplyIniMultModifiers(StaticFunctionTag* base, VMArray<float> multsToModify)
+	{
+		if (multsToModify.Length() < 36)
+			return;
+		EnchantingAwakenedINIManager::Instance.ApplyIniMultModifiers(multsToModify);
+	}
+
+
+	void DumpLearningDataInternal(VMArray<EnchantmentItem*> &ench, VMArray<float> &enchXP, VMArray<UInt32> &enchLvl, std::map<UInt32, std::string> &modNames)
+	{
+		for(UInt32 i = 0; i < ench.Length(); i++)
+		{
+			EnchantmentItem* e = NULL;
+			float xp = NULL;
+			UInt32 lvl = NULL;
+			ench.Get(&e, i);
+			enchXP.Get(&xp, i);
+			enchLvl.Get(&lvl, i);
+
+			int formIndex = (e) ? e->formID & 0xFF000000 : 0;
+			if (modNames.find(formIndex) == modNames.end())
+			{
+				char modName[0x104];
+				DataHandler* pData = DataHandler::GetSingleton();
+				ModInfo* mInfo = (pData) ? pData->modList.modInfoList.GetNthItem(formIndex) : NULL;
+				strcpy_s(modName, (mInfo) ? mInfo->name : "");
+				std::string modStr = modName;
+				modNames[formIndex] = modStr;
+			}
+
+			_MESSAGE("[0x%08X] %-40s xp: %10g lvl: %4d   (src mod: %s)"
+				, (e) ? e->formID & 0x00FFFFFF : 0
+				, (e) ? (DYNAMIC_CAST(e, EnchantmentItem, TESFullName))->name.data : "NULL"
+				, xp
+				, lvl
+				, (e) ? modNames[e->formID & 0xFF000000].c_str() : "NULL");
+		}
+	}
+
+	void DumpLearningData(StaticFunctionTag* base, VMArray<EnchantmentItem*> dEnch, VMArray<float> dEnchXP, VMArray<UInt32> dEnchLvl, VMArray<EnchantmentItem*> oEnch, VMArray<float> oEnchXP, VMArray<UInt32> oEnchLvl)
+	{
+		std::map<UInt32, std::string> modNames;
+
+		_MESSAGE("\n\nDUMPING CURRENT LEARNING PROGRESS:");
+		gLog.Indent();
+		_MESSAGE("\nWeapon Enchantments ---->");
+		gLog.Indent();
+
+		DumpLearningDataInternal(oEnch, oEnchXP, oEnchLvl, modNames);
+
+		gLog.Outdent();
+		_MESSAGE("\nArmor Enchantments ---->");
+		gLog.Indent();
+
+		DumpLearningDataInternal(dEnch, dEnchXP, dEnchLvl, modNames);
+	}
 }
 
 
 bool RegisterPapyrusEAExtender(VMClassRegistry* registry)
 {
+	registry->RegisterFunction(
+		new NativeFunction2<StaticFunctionTag, UInt32, EnchantmentItem*, VMArray<EffectSetting*>>("GetEnchantmentMagicEffects", "EA_Extender", PapyrusEAExtender::GetEnchantmentMagicEffects, registry));
 	registry->RegisterFunction(
 		new NativeFunction1<StaticFunctionTag, UInt32, SpellItem*>("GetSpellSkillNumber", "EA_Extender", PapyrusEAExtender::GetSpellSkillNumber, registry));
 	registry->RegisterFunction(
@@ -455,8 +640,29 @@ bool RegisterPapyrusEAExtender(VMClassRegistry* registry)
 		new NativeFunction3<StaticFunctionTag, void, VMArray<TESForm*>, UInt32, VMArray<BGSKeyword*>>("SetFormArrayNthKeywordArray", "EA_Extender", PapyrusEAExtender::SetFormArrayNthKeywordArray, registry));
 	registry->RegisterFunction(
 		new NativeFunction0<StaticFunctionTag, BSFixedString>("GetLearnEventName", "EA_Extender", PapyrusEAExtender::GetLearnEventName, registry));
-	
+	registry->RegisterFunction(
+		new NativeFunction3<StaticFunctionTag, void, BGSListForm*, VMArray<EnchantmentItem*>, bool>("FillFormlistWithChildrenOfBaseEnchantments", "EA_Extender", PapyrusEAExtender::FillFormlistWithChildrenOfBaseEnchantments, registry));
+	registry->RegisterFunction(
+		new NativeFunction2<StaticFunctionTag, void, BGSListForm*, BGSListForm*>("FillFormlistWithChildrenOfBaseEnchantmentsList", "EA_Extender", PapyrusEAExtender::FillFormlistWithChildrenOfBaseEnchantmentsList, registry));
+	registry->RegisterFunction(
+		new NativeFunction3<StaticFunctionTag, void, VMArray<BGSPerk*>, VMArray<float>, UInt32>("SetPerkEntryValues", "EA_Extender", PapyrusEAExtender::SetPerkEntryValues, registry));
+	registry->RegisterFunction(
+		new NativeFunction1<StaticFunctionTag, void, float>("SetOffensiveEnchantmentLearnExperienceMult", "EA_Extender", PapyrusEAExtender::SetOffensiveEnchantmentLearnExperienceMult, registry));
+	registry->RegisterFunction(
+		new NativeFunction1<StaticFunctionTag, void, VMArray<float>>("SetOffensiveEnchantmentLearnLevelThresholds", "EA_Extender", PapyrusEAExtender::SetOffensiveEnchantmentLearnLevelThresholds, registry));
+	// registry->RegisterFunction(
+	// 	new NativeFunction0<StaticFunctionTag, void>("DumpSpellsAndEffects", "EA_Extender", PapyrusEAExtender::DumpSpellsAndEffects, registry));
+	registry->RegisterFunction(
+		new NativeFunction0<StaticFunctionTag, BSFixedString>("GetArmorEnchantmentEquipEventName", "EA_Extender", PapyrusEAExtender::GetArmorEnchantmentEquipEventName, registry));
+	registry->RegisterFunction(
+		new NativeFunction1<StaticFunctionTag, void, VMArray<float>>("ApplyIniMultModifiers", "EA_Extender", PapyrusEAExtender::ApplyIniMultModifiers, registry));
+	registry->RegisterFunction(
+		new NativeFunction2<StaticFunctionTag, void, VMArray<float>, VMArray<float>>("GetIniPerkPowerVals", "EA_Extender", PapyrusEAExtender::GetIniPerkPowerVals, registry));
 
+	registry->RegisterFunction(
+		new NativeFunction6<StaticFunctionTag, void, VMArray<EnchantmentItem*>, VMArray<float>, VMArray<UInt32>, VMArray<EnchantmentItem*>, VMArray<float>, VMArray<UInt32>>("DumpLearningData", "EA_Extender", PapyrusEAExtender::DumpLearningData, registry));
+
+	registry->SetFunctionFlags("EA_Extender", "GetEnchantmentMagicEffects", VMClassRegistry::kFunctionFlag_NoWait);
 	registry->SetFunctionFlags("EA_Extender", "GetSpellSkillNumber", VMClassRegistry::kFunctionFlag_NoWait);
 	registry->SetFunctionFlags("EA_Extender", "GetSpellSkillString", VMClassRegistry::kFunctionFlag_NoWait);
 	registry->SetFunctionFlags("EA_Extender", "IsSpellSkillType", VMClassRegistry::kFunctionFlag_NoWait);
@@ -469,6 +675,12 @@ bool RegisterPapyrusEAExtender(VMClassRegistry* registry)
 	registry->SetFunctionFlags("EA_Extender", "SetNthKeyword", VMClassRegistry::kFunctionFlag_NoWait);
 	registry->SetFunctionFlags("EA_Extender", "SetFormArrayNthKeyword", VMClassRegistry::kFunctionFlag_NoWait);
 	registry->SetFunctionFlags("EA_Extender", "SetFormArrayNthKeywordArray", VMClassRegistry::kFunctionFlag_NoWait);
+
+	registry->SetFunctionFlags("EA_Extender", "FillFormlistWithChildrenOfBaseEnchantments", VMClassRegistry::kFunctionFlag_NoWait);
+	registry->SetFunctionFlags("EA_Extender", "FillFormlistWithChildrenOfBaseEnchantmentsList", VMClassRegistry::kFunctionFlag_NoWait);
+	registry->SetFunctionFlags("EA_Extender", "SetPerkEntryValues", VMClassRegistry::kFunctionFlag_NoWait);
+	registry->SetFunctionFlags("EA_Extender", "ApplyIniMultModifiers", VMClassRegistry::kFunctionFlag_NoWait);
+	registry->SetFunctionFlags("EA_Extender", "GetIniPerkPowerVals", VMClassRegistry::kFunctionFlag_NoWait);
 
 	return true;
 }
