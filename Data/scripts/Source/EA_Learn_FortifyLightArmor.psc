@@ -2,7 +2,7 @@ Scriptname EA_Learn_FortifyLightArmor extends EA_Learn_TemplateAME
 
 ;Effect is active when conditions are met:
 ;  HasMagicEffect               EnchFortifyLightArmorConstantSelf   ==   1.00   AND
-;  WornApparelHasKeywordCount   ArmorLight                          >=   1.00
+;  WornApparelHasKeywordCount   ArmorLight                          >=   1.00 
 
 Spell property EA_LearnUtility_LightArmorCountUpdateSpell auto
 

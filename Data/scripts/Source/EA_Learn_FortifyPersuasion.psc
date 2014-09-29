@@ -14,7 +14,7 @@ Event OnEffectStart(Actor target, Actor caster)
 EndEvent
 
 Event OnMenuClose(string menu)
-	RegisterForSingleUpdate(15.0) ;prevent menu event spam
+	RegisterForSingleUpdate(10.0) ;prevent menu event spam
 EndEvent
 	
 Event OnUpdate()

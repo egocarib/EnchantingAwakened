@@ -2,7 +2,7 @@ Scriptname EA_Learn_FortifyHeavyArmor extends EA_Learn_TemplateAME
 
 ;Effect is active when conditions are met:
 ;  HasMagicEffect               EnchFortifyHeavyArmorConstantSelf   ==   1.00   AND
-;  WornApparelHasKeywordCount   ArmorHeavy                          >=   1.00
+;  WornApparelHasKeywordCount   ArmorHeavy                          >=   1.00 
 
 Spell property EA_LearnUtility_HeavyArmorCountUpdateSpell auto
 

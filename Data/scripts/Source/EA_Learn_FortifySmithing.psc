@@ -13,6 +13,7 @@ float miscExperienceModifier = 0.5
 
 
 Event OnMenuOpen(string menu)
+	UnregisterForUpdate()
 	ObjectReference workbench = playerRef.GetFurnitureReference()
 	if (workbench.HasKeyword(CraftingSmithingForge))
 		GoToState("CraftingForgeState")
@@ -26,6 +27,12 @@ EndEvent
 
 Event OnMenuClose(string menu)
 	GoToState("")
+	RegisterForSingleUpdate(600.0)
+EndEvent
+
+Event OnUpdate()
+	;reset forge modifier after ten minutes away from craft stations
+	forgeExperienceModifier = 1.0
 EndEvent
 
 

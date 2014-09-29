@@ -23,7 +23,7 @@ Auto State Active
 		    		endif
 		    	endif
 		    endif
-		    Utility.Wait(2.0)
+		    Utility.WaitMenuMode(1.0)
     	GoToState("Active")
 	EndEvent
 EndState
@@ -32,7 +32,7 @@ EndState
 Event OnDelaySpellType(string evnName, string strArg, float numArg, Form sender)
 	int type = numArg as int
 	isDelaying[type] = true
-	Utility.Wait(15.0)
+	Utility.Wait(5.0)
 	isDelaying[type] = isDeactivated[type]
 EndEvent
 

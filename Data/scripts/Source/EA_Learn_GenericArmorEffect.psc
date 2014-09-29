@@ -26,5 +26,5 @@ Function ProcessLearned()
 EndFunction
 
 Function DoLearn(int amount) ;OVERRIDE THIS FUNCTION IF EXTENDING
-	;learnManager.LearnUnknownEffect(learnAmount)
+	learnManager.LearnUnknownEffect(amount)
 EndFunction
