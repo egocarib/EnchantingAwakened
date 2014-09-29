@@ -1,0 +1,4 @@
+namespace EAPatches
+{
+	void ApplyFormPatches();
+};
