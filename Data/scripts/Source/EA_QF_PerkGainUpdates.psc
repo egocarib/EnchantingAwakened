@@ -21,7 +21,9 @@ Function Fragment_2()
 ;no enchanting perks
 debug.trace("=================== Perk Fragment Stage 0 running (no perks) [initialized == " + initialized + "]")
 MainQuestRef.PerkStateCore = 0
-MainQuestRef.PerkStateSpecial = 0
+MainQuestRef.PerkStateSpecial[1] = false
+MainQuestRef.PerkStateSpecial[2] = false
+MainQuestRef.PerkStateSpecial[3] = false
 if (initialized)
   MainQuestRef.UpdateRestrictions()
 endif
@@ -69,7 +71,10 @@ Function Fragment_7()
 ;BEGIN CODE
 ;corpus guardian
 debug.trace("=================== Perk Fragment Stage 53 running (corpusGuardian)")
-MainQuestRef.PerkStateSpecial = 3
+MainQuestRef.PerkStateSpecial[3] = true
+MainQuestRef.PerkStateSpecial[2] = PlayerRef.HasPerk(EA_ChaosMaster)
+MainQuestRef.PerkStateSpecial[1] = PlayerRef.HasPerk(EA_AetherStrider)
+
 MainQuestRef.UpdateRestrictions()
 ;END CODE
 EndFunction
@@ -93,7 +98,9 @@ Function Fragment_5()
 ;BEGIN CODE
 ;aether strider
 debug.trace("=================== Perk Fragment Stage 51 running (aetherStrider)")
-MainQuestRef.PerkStateSpecial = 1
+MainQuestRef.PerkStateSpecial[3] = PlayerRef.HasPerk(EA_CorpusGuardian)
+MainQuestRef.PerkStateSpecial[2] = PlayerRef.HasPerk(EA_ChaosMaster)
+MainQuestRef.PerkStateSpecial[1] = true
 MainQuestRef.UpdateRestrictions()
 ;END CODE
 EndFunction
@@ -104,7 +111,9 @@ Function Fragment_6()
 ;BEGIN CODE
 ;chaos master
 debug.trace("=================== Perk Fragment Stage 52 running (chaosMaster)")
-MainQuestRef.PerkStateSpecial = 2
+MainQuestRef.PerkStateSpecial[3] = PlayerRef.HasPerk(EA_CorpusGuardian)
+MainQuestRef.PerkStateSpecial[2] = true
+MainQuestRef.PerkStateSpecial[1] = PlayerRef.HasPerk(EA_AetherStrider)
 MainQuestRef.UpdateRestrictions()
 ;END CODE
 EndFunction
@@ -126,4 +135,10 @@ EndFunction
 EA_PCDisenchantingControl Property MainQuestRef  Auto
 EA_SoulTrapQuestScript Property SoulTrapQuest Auto
 
+Actor property PlayerRef Auto
+
 Bool Property initialized = False Auto  
+
+Perk Property EA_ChaosMaster auto
+Perk Property EA_CorpusGuardian auto
+Perk Property EA_AetherStrider auto

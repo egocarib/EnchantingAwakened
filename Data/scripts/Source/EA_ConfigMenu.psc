@@ -926,7 +926,9 @@ State tog_Perks1
 
        ;EA_PCDisenchantingControl:
         PCD.PerkStateCore = 0
-        PCD.PerkStateSpecial = 0
+        PCD.PerkStateSpecial[1] = false
+        PCD.PerkStateSpecial[2] = false
+        PCD.PerkStateSpecial[3] = false
         PCD.UpdateRestrictions()
 
        ;Menu Perk Info Recalc:

@@ -7,10 +7,10 @@ Scriptname EA_PCDisenchantingControl extends ReferenceAlias
 
 	;PerkState variables are updated via perk quest script fragments whenever a new perk is gained:
 	int            property  PerkStateCore                  auto hidden ;0 = NO SoulShaper perks   1 = SoulShaper01    2 = SoulShaper02   3 = SoulShaper03
-	int            property  PerkStateSpecial               auto hidden ;0 = NO specialist perks   1 = AetherStrider   2 = ChaosMaster    3 = CorpusGuardian
+	bool[]         property  PerkStateSpecial               auto hidden ;0 = not used   1 = AetherStrider   2 = ChaosMaster    3 = CorpusGuardian
 	Formlist[]     property  PerkLinkedEnchantmentsCore     auto
 	Formlist[]     property  PerkLinkedEnchantmentsSpecial  auto
-	Enchantment[]  property  PerkLinkedEnchantmentsALL      auto ;All known enchantments, checked against possible custom enchantments added by other mods
+	Formlist       property  EA_PerkLinkedEnchantmentsALL   auto ;All recognized enchantments, vanilla or user-added through INI.
 	Keyword        property  MagicDisallowEnchanting        auto
 
 	Form[]         RestrictedItems
@@ -34,6 +34,7 @@ Scriptname EA_PCDisenchantingControl extends ReferenceAlias
 
 
 Event OnInit()
+	PerkStateSpecial = new bool[4]
 	registerForSingleUpdate(0.001)
 EndEvent
 
@@ -150,15 +151,21 @@ bool Function CanDisenchant(Enchantment baseEnch)
 	endWhile
 
 	;check master perks to account for any style-exclusive enchantments:
-	if PerkLinkedEnchantmentsSpecial[PerkStateSpecial].hasForm(baseEnch)
-		debug.trace("Enchanting Awakened ::::::::::::::::::::: CanDisenchant returning true for enchantment " + (baseEnch as form).getName())
-		return true
-	endif 
+	int specialList = 0
+	while specialList < 3
+		specialList += 1
+		if PerkStateSpecial[specialList]
+			if PerkLinkedEnchantmentsSpecial[specialList].hasForm(baseEnch)
+				debug.trace("Enchanting Awakened ::::::::::::::::::::: CanDisenchant returning true for enchantment " + (baseEnch as form).getName())
+				return true
+			endif
+		endif
+	endWhile
 
 	;allow disenchanting of any modded/custom enchantments once the first perk is unlocked. Also, don't
 	;track player-enchanted items, game won't allow disenchanting of them anyway even if player would respec.
-	debug.trace("Enchanting Awakened ::::::::::::::::::::: CanDisenchant returning " + (PerkStateCore && (PerkLinkedEnchantmentsALL.find(baseEnch) < 0)) + " for enchantment " + (baseEnch as form).getName())
-	return PerkStateCore && (PerkLinkedEnchantmentsALL.find(baseEnch) < 0)
+	debug.trace("Enchanting Awakened ::::::::::::::::::::: CanDisenchant returning " + (PerkStateCore && !EA_PerkLinkedEnchantmentsALL.hasForm(baseEnch)) + " for enchantment " + (baseEnch as form).getName())
+	return (PerkStateCore && !EA_PerkLinkedEnchantmentsALL.hasForm(baseEnch))
 
 	;POSSIBLE FEATURE:
 	;;if I implement enchantment learning, I could also add an MCM option to only allow
