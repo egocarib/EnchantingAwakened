@@ -31,3 +31,5 @@ test logs/
 common/
 /BuildIncrement.jse
 BuildInfo.h
+*.psd
+fonts/
