@@ -37,6 +37,8 @@ class EAScrollingListEntry extends MovieClip
 		}
 		else //singleclick
 		{
+			this.entry._textlabel.editable = false;
+			this.entry._textLabel.keyDown = null;
 		    Selection.setFocus(_root._falseFocus); //prevent stray cursor
 			_parent.InterruptFocus(this);
 		}

@@ -46,6 +46,7 @@ class EAScrollingList extends MovieClip
 		super();
 
 		Mouse.addListener(this);
+		Key.addListener(this);
 
 		//Init Scrollbar
 		_scrollbarTrack                   = _root._scrollbarTrack;
@@ -79,6 +80,18 @@ class EAScrollingList extends MovieClip
 				PostLoadEntries();
 				delete this.onEnterFrame;
 			}
+		}
+
+		skse.SendModEvent("EA_LearnMenuOpening", "", 0, 0)
+	}
+
+	function UnloadMenu()
+	{
+		if (_currentMode != MODE_TEXTINPUT)
+		{
+			skse.AllowTextInput(false);
+			skse.SendModEvent("EA_LearnMenuClosing", "", 0, 0)
+			skse.CloseMenu("CustomMenu")
 		}
 	}
 
@@ -176,6 +189,15 @@ class EAScrollingList extends MovieClip
 		SnapScrollbarButtonToTrack();
 	}
 
+	function onKeyDown()
+	{
+		if (_currentMode != MODE_TEXTINPUT)
+		    if (Key.getCode() == Key.TAB || Key.getCode() == Key.ESCAPE)
+		    {
+		    	UnloadMenu();
+		    }
+	}
+
 	function LoadEntries()
 	{
 		//paramaters that will be passed to this, eventually
@@ -195,7 +217,7 @@ class EAScrollingList extends MovieClip
 			Entries[h]._y = yAnchor;
 			yAnchor += Entries[h]._height + yBuffer;
 			Entries[h].attachMovie("ListEntry", "entry", this.getNextHighestDepth());
-			skse.SendModEvent("EVENT_test", "", 0, 0);
+			// skse.SendModEvent("EVENT_test", "", 0, 0);
 		}
 
 		TOTAL_ENTRIES = TestStrings.length;
